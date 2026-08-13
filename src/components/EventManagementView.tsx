@@ -26,7 +26,8 @@ import {
   X,
   Sparkles,
   ShieldCheck,
-  Maximize2
+  Maximize2,
+  Trash2
 } from 'lucide-react';
 
 interface EventManagementViewProps {
@@ -37,6 +38,8 @@ interface EventManagementViewProps {
   onSetSessionStatus: (sessionId: string, newStatus: EventStatus) => void;
   onCreateActivity: (activity: AttendanceActivity) => void;
   onCreateSession: (session: AttendanceSession) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  onDeleteActivity?: (activityId: string) => void;
   onOpenScannerForSession: (sessionId: string) => void;
   onRequestAdminAccess: (actionName?: string) => void;
 }
@@ -49,6 +52,8 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
   onSetSessionStatus,
   onCreateActivity,
   onCreateSession,
+  onDeleteSession,
+  onDeleteActivity,
   onOpenScannerForSession,
   onRequestAdminAccess
 }) => {
@@ -166,6 +171,34 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
     setIsCreateSessionOpen(false);
   };
 
+  // Handle Delete Session (e.g. if created redundantly)
+  const handleDeleteSessionClick = (session: AttendanceSession) => {
+    if (!isAdmin) {
+      onRequestAdminAccess(`Padam Sesi (${session.sessionName})`);
+      return;
+    }
+    const confirmed = window.confirm(
+      `Adakah anda pasti untuk MEMADAM sesi "${session.sessionName}"?\n\nSesi ini akan dipadam daripada senarai kehadiran sekiranya ia dicipta secara tersilap / redundan.`
+    );
+    if (confirmed && onDeleteSession) {
+      onDeleteSession(session.id);
+    }
+  };
+
+  // Handle Delete Activity
+  const handleDeleteActivityClick = (activity: AttendanceActivity) => {
+    if (!isAdmin) {
+      onRequestAdminAccess(`Padam Aktiviti (${activity.name})`);
+      return;
+    }
+    const confirmed = window.confirm(
+      `Adakah anda pasti untuk MEMADAM aktiviti induk "${activity.name}" dan semua sesinya?`
+    );
+    if (confirmed && onDeleteActivity) {
+      onDeleteActivity(activity.id);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header & Search Bar */}
@@ -272,7 +305,7 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Add Session Button */}
+                  {/* Action Buttons for Activity */}
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       id={`btn-add-session-${activity.id}`}
@@ -281,6 +314,15 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Tambah Sesi</span>
+                    </button>
+
+                    <button
+                      id={`btn-delete-activity-${activity.id}`}
+                      onClick={() => handleDeleteActivityClick(activity)}
+                      className="p-2 rounded-xl bg-slate-900/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-500/30 transition-all cursor-pointer"
+                      title="Padam Aktiviti Induk"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -358,28 +400,45 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                             </div>
 
                             {/* Action Row for this Session */}
-                            <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                              {/* Open / Close Session Toggle */}
-                              {isOpen ? (
-                                <button
-                                  id={`btn-close-session-${session.id}`}
-                                  onClick={() => onSetSessionStatus(session.id, 'CLOSED')}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 text-xs font-semibold border border-slate-700 hover:border-rose-500/40 transition-all cursor-pointer"
-                                >
-                                  <Square className="w-3.5 h-3.5 text-rose-400" />
-                                  <span>Tutup Sesi</span>
-                                </button>
-                              ) : (
-                                <button
-                                  id={`btn-open-session-${session.id}`}
-                                  onClick={() => onSetSessionStatus(session.id, 'OPEN')}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs font-semibold border border-emerald-500/30 transition-all cursor-pointer"
-                                >
-                                  <Play className="w-3.5 h-3.5 text-emerald-400" />
-                                  <span>Buka Sesi Ini</span>
-                                </button>
-                              )}
+                            <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+                              {/* Left Controls: Open/Close & Delete */}
+                              <div className="flex items-center gap-2">
+                                {/* Open / Close Session Toggle */}
+                                {isOpen ? (
+                                  <button
+                                    id={`btn-close-session-${session.id}`}
+                                    onClick={() => onSetSessionStatus(session.id, 'CLOSED')}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 text-xs font-semibold border border-slate-700 hover:border-rose-500/40 transition-all cursor-pointer"
+                                    title="Tutup sesi kehadiran ini"
+                                  >
+                                    <Square className="w-3.5 h-3.5 text-rose-400" />
+                                    <span>Tutup Sesi</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    id={`btn-open-session-${session.id}`}
+                                    onClick={() => onSetSessionStatus(session.id, 'OPEN')}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs font-semibold border border-emerald-500/30 transition-all cursor-pointer"
+                                    title="Buka sesi kehadiran ini untuk pengimbasan"
+                                  >
+                                    <Play className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>Buka Sesi Ini</span>
+                                  </button>
+                                )}
 
+                                {/* Delete Redundant / Erroneous Session Button */}
+                                <button
+                                  id={`btn-delete-session-${session.id}`}
+                                  onClick={() => handleDeleteSessionClick(session)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 text-xs font-semibold border border-slate-800 hover:border-rose-500/40 transition-all cursor-pointer"
+                                  title="Padam sesi ini jika dibuat secara tersilap / redundan"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Padam Sesi</span>
+                                </button>
+                              </div>
+
+                              {/* Right Controls: Projector & Scanner */}
                               <div className="flex items-center gap-2">
                                 {/* Projector / Big QR Screen */}
                                 <button

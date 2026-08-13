@@ -374,6 +374,38 @@ class AttendanceEngine {
     return updated;
   }
 
+  public deleteSession(sessionId: string): AttendanceSession[] {
+    const updated = this.sessions.filter((s) => s.id !== sessionId);
+    this.sessions = updated;
+    this.saveSessionsLocally();
+
+    if (db) {
+      deleteDoc(doc(db, 'sessions', sessionId)).catch((err) => {
+        console.warn(`Error deleting session ${sessionId} from Firestore:`, err);
+      });
+    }
+
+    return updated;
+  }
+
+  public deleteActivity(activityId: string): AttendanceActivity[] {
+    const updated = this.activities.filter((a) => a.id !== activityId);
+    this.activities = updated;
+    this.saveActivitiesLocally();
+
+    // Also remove associated sessions
+    const sessionsToRemove = this.sessions.filter((s) => s.activityId === activityId);
+    sessionsToRemove.forEach((s) => this.deleteSession(s.id));
+
+    if (db) {
+      deleteDoc(doc(db, 'activities', activityId)).catch((err) => {
+        console.warn(`Error deleting activity ${activityId} from Firestore:`, err);
+      });
+    }
+
+    return updated;
+  }
+
   public setSessionStatus(sessionId: string, newStatus: EventStatus): AttendanceSession[] {
     const updated = this.sessions.map((session) => {
       if (session.id === sessionId) {

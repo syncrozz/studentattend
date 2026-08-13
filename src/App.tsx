@@ -82,6 +82,24 @@ export default function App() {
   const handleSetSessionStatus = (sessionId: string, newStatus: EventStatus) => {
     const updated = attendanceEngine.setSessionStatus(sessionId, newStatus);
     setSessions(updated);
+    if (newStatus === 'CLOSED') {
+      soundService.playClick();
+    }
+  };
+
+  // Delete Session (e.g. redundant session created by accident)
+  const handleDeleteSession = (sessionId: string) => {
+    const updated = attendanceEngine.deleteSession(sessionId);
+    setSessions(updated);
+    soundService.playClick();
+  };
+
+  // Delete Activity
+  const handleDeleteActivity = (activityId: string) => {
+    const updated = attendanceEngine.deleteActivity(activityId);
+    setActivities(updated);
+    setSessions(attendanceEngine.getSessions());
+    soundService.playClick();
   };
 
   // Create Activity
@@ -213,6 +231,8 @@ export default function App() {
               onSetSessionStatus={handleSetSessionStatus}
               onCreateActivity={handleCreateActivity}
               onCreateSession={handleCreateSession}
+              onDeleteSession={handleDeleteSession}
+              onDeleteActivity={handleDeleteActivity}
               onOpenScannerForSession={(sessionId) => {
                 handleSetSessionStatus(sessionId, 'OPEN');
                 setActiveTab('scanner');
