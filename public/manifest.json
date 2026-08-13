@@ -1,0 +1,24 @@
+{
+  "short_name": "MyAttendance",
+  "name": "My Attendance - Sistem Kehadiran QR Kekal",
+  "description": "Sistem Pengurusan Kehadiran QR Kekal & Cloud Sync untuk Acara & Program Staf",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "portrait"
+}

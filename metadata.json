@@ -1,0 +1,10 @@
+{
+  "name": "Student Attend",
+  "description": "StudentAttend — Universal Student Attendance Platform with 95 Students master directory (DIA_4A-4D), Activity & Scheduled Sessions, QR Scanner Engine, Duplicate Prevention, and Dual-Perspective Reporting.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

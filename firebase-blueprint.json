@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "staff": {
+      "title": "Staff",
+      "description": "Master directory of staff members",
+      "properties": {
+        "id": { "type": "string", "description": "Unique staff ID (e.g. ST001)" },
+        "name": { "type": "string", "description": "Full name" },
+        "department": { "type": "string", "description": "Department name" },
+        "position": { "type": "string", "description": "Job position" },
+        "email": { "type": "string", "description": "Email address" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "avatarUrl": { "type": "string", "description": "Avatar URL" },
+        "status": { "type": "string", "description": "Status ACTIVE or INACTIVE" }
+      },
+      "required": ["id", "name", "department", "position", "email", "status"]
+    },
+    "events": {
+      "title": "Events",
+      "description": "Event and meeting contexts",
+      "properties": {
+        "id": { "type": "string", "description": "Event ID (e.g. E001)" },
+        "name": { "type": "string", "description": "Event name" },
+        "category": { "type": "string", "description": "Category" },
+        "date": { "type": "string", "description": "Event date" },
+        "startTime": { "type": "string", "description": "Start time" },
+        "endTime": { "type": "string", "description": "End time" },
+        "location": { "type": "string", "description": "Location" },
+        "status": { "type": "string", "description": "Status OPEN, CLOSED, or ARCHIVED" },
+        "description": { "type": "string", "description": "Description" },
+        "targetCount": { "type": "number", "description": "Target headcount" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["id", "name", "category", "date", "startTime", "endTime", "location", "status", "createdAt"]
+    },
+    "attendanceRecords": {
+      "title": "Attendance Records",
+      "description": "Scan transactions recorded per event",
+      "properties": {
+        "id": { "type": "string", "description": "Unique attendance record ID" },
+        "eventId": { "type": "string", "description": "Event ID" },
+        "eventName": { "type": "string", "description": "Event Name" },
+        "staffId": { "type": "string", "description": "Staff ID" },
+        "staffName": { "type": "string", "description": "Staff Name" },
+        "staffDepartment": { "type": "string", "description": "Staff Department" },
+        "timestamp": { "type": "string", "description": "ISO timestamp" },
+        "formattedTime": { "type": "string", "description": "Formatted time display" },
+        "method": { "type": "string", "description": "Scan method" }
+      },
+      "required": ["id", "eventId", "eventName", "staffId", "staffName", "staffDepartment", "timestamp", "formattedTime", "method"]
+    }
+  }
+}
