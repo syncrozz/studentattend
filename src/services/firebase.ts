@@ -9,12 +9,22 @@ export const db = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestore
   : getFirestore(app);
 
 // Utility to clean undefined values before saving to Firestore
-export function sanitizeForFirestore<T extends Record<string, any>>(obj: T): T {
-  const cleaned: Record<string, any> = {};
-  Object.keys(obj).forEach((key) => {
-    if (obj[key] !== undefined) {
-      cleaned[key] = obj[key];
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data as Record<string, any>)) {
+      if (value !== undefined) {
+        cleaned[key] = typeof value === 'object' && value !== null ? sanitizeForFirestore(value) : value;
+      }
     }
-  });
-  return cleaned as T;
+    return cleaned as T;
+  }
+  return data;
 }
+

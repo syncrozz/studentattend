@@ -14,7 +14,7 @@ import {
   INITIAL_SESSIONS,
   INITIAL_ATTENDANCE_RECORDS
 } from '../data/mockData';
-import { db } from './firebase';
+import { db, sanitizeForFirestore } from './firebase';
 import {
   collection,
   doc,
@@ -94,19 +94,19 @@ class AttendanceEngine {
     try {
       // Sync students
       for (const student of this.students) {
-        await setDoc(doc(db, 'students', student.id), student, { merge: true });
+        await setDoc(doc(db, 'students', student.id), sanitizeForFirestore(student), { merge: true });
       }
       // Sync activities
       for (const activity of this.activities) {
-        await setDoc(doc(db, 'activities', activity.id), activity, { merge: true });
+        await setDoc(doc(db, 'activities', activity.id), sanitizeForFirestore(activity), { merge: true });
       }
       // Sync sessions
       for (const session of this.sessions) {
-        await setDoc(doc(db, 'sessions', session.id), session, { merge: true });
+        await setDoc(doc(db, 'sessions', session.id), sanitizeForFirestore(session), { merge: true });
       }
       // Sync records
       for (const rec of this.attendanceRecords) {
-        await setDoc(doc(db, 'attendance_records', rec.id), rec, { merge: true });
+        await setDoc(doc(db, 'attendance_records', rec.id), sanitizeForFirestore(rec), { merge: true });
       }
     } catch (e) {
       console.warn('Firestore initial sync error (fallback to local state):', e);
@@ -298,7 +298,9 @@ class AttendanceEngine {
 
     if (db) {
       students.forEach((student) => {
-        setDoc(doc(db, 'students', student.id), student, { merge: true }).catch(console.error);
+        setDoc(doc(db, 'students', student.id), sanitizeForFirestore(student), { merge: true }).catch((err) => {
+          console.warn(`Error saving student ${student.id} to Firestore:`, err);
+        });
       });
     }
   }
@@ -313,7 +315,9 @@ class AttendanceEngine {
     this.saveStudentsLocally();
 
     if (db) {
-      deleteDoc(doc(db, 'students', studentId)).catch(console.error);
+      deleteDoc(doc(db, 'students', studentId)).catch((err) => {
+        console.warn(`Error deleting student ${studentId} from Firestore:`, err);
+      });
     }
   }
 
@@ -323,7 +327,9 @@ class AttendanceEngine {
 
     if (db) {
       activities.forEach((activity) => {
-        setDoc(doc(db, 'activities', activity.id), activity, { merge: true }).catch(console.error);
+        setDoc(doc(db, 'activities', activity.id), sanitizeForFirestore(activity), { merge: true }).catch((err) => {
+          console.warn(`Error saving activity ${activity.id} to Firestore:`, err);
+        });
       });
     }
   }
@@ -339,7 +345,9 @@ class AttendanceEngine {
 
     if (db) {
       sessions.forEach((session) => {
-        setDoc(doc(db, 'sessions', session.id), session, { merge: true }).catch(console.error);
+        setDoc(doc(db, 'sessions', session.id), sanitizeForFirestore(session), { merge: true }).catch((err) => {
+          console.warn(`Error saving session ${session.id} to Firestore:`, err);
+        });
       });
     }
   }
@@ -387,7 +395,9 @@ class AttendanceEngine {
 
     if (db) {
       records.forEach((record) => {
-        setDoc(doc(db, 'attendance_records', record.id), record, { merge: true }).catch(console.error);
+        setDoc(doc(db, 'attendance_records', record.id), sanitizeForFirestore(record), { merge: true }).catch((err) => {
+          console.warn(`Error saving attendance record ${record.id} to Firestore:`, err);
+        });
       });
     }
   }

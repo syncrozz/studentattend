@@ -146,19 +146,19 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
     const newSes: AttendanceSession = {
       id: `SES-${Date.now().toString(36).toUpperCase()}`,
       activityId: sessionForActivityId,
-      activityName: parentAct?.name,
-      category: parentAct?.category,
+      activityName: parentAct?.name || 'Aktiviti',
+      category: parentAct?.category || 'OTHER',
       sessionName: newSessionName.trim(),
       date: newSessionDate,
       startTime: newSessionStartTime,
       endTime: newSessionEndTime,
       status: 'OPEN', // Default to open so it is immediately active
       attendanceMethod: 'QR',
-      location: parentAct?.location,
-      organizer: parentAct?.organizer,
-      className: newSessionClass || undefined,
-      subjectName: newSessionSubject || undefined,
-      lecturerName: newSessionLecturer || undefined,
+      location: parentAct?.location || 'Kolej',
+      organizer: parentAct?.organizer || 'Penganjur Kolej',
+      ...(newSessionClass ? { className: newSessionClass } : {}),
+      ...(newSessionSubject ? { subjectName: newSessionSubject.trim() } : {}),
+      ...(newSessionLecturer ? { lecturerName: newSessionLecturer.trim() } : {}),
       createdAt: new Date().toISOString()
     };
 
