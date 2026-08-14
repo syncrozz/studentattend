@@ -9,3 +9,206 @@
     scrollbar-width: none;
   }
 }
+
+/* ==========================================================================
+   PRINT MEDIA STYLES - Fixes 21-page duplicate issue & Formats Clean Cards
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+
+  /* Reset body and canvas for print */
+  html, body, #root {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Hide app global headers, sidebars, buttons and interactive controls */
+  header,
+  aside,
+  nav,
+  button,
+  input,
+  select,
+  .no-print,
+  [data-no-print="true"] {
+    display: none !important;
+  }
+
+  /* When an ID Card modal is open, completely suppress the background app view */
+  .has-print-modal > *:not(.printable-modal-wrapper),
+  body:has(.printable-id-card) #root > div > header,
+  body:has(.printable-id-card) #root > div > div > aside,
+  body:has(.printable-id-card) #root > div > div > main > div:not(.printable-modal-wrapper),
+  body:has(.printable-batch-container) #root > div > header,
+  body:has(.printable-batch-container) #root > div > div > aside,
+  body:has(.printable-batch-container) #root > div > div > main > div:not(.printable-modal-wrapper) {
+    display: none !important;
+  }
+
+  /* Reset Modal Overlay from fixed/backdrop to clean static container */
+  .printable-modal-wrapper {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .printable-modal-content {
+    position: static !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     Single Student ID Card Print Layout (Exactly 1 Page, Clean & Sharp)
+     -------------------------------------------------------------------------- */
+  .printable-id-card {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 2px solid #1e293b !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+    padding: 24px !important;
+    max-width: 360px !important;
+    margin: 40px auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    display: block !important;
+    text-align: center !important;
+  }
+
+  .printable-id-card * {
+    color: #0f172a !important;
+    background-color: transparent !important;
+  }
+
+  .printable-id-card .qr-code-wrapper {
+    background-color: #ffffff !important;
+    padding: 12px !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    display: inline-block !important;
+    margin: 12px auto !important;
+  }
+
+  .printable-id-card .badge-student-set {
+    display: inline-block !important;
+    padding: 2px 8px !important;
+    border: 1px solid #4338ca !important;
+    border-radius: 6px !important;
+    color: #4338ca !important;
+    font-weight: bold !important;
+  }
+
+  .printable-id-card .student-id-text {
+    color: #4338ca !important;
+    font-family: monospace !important;
+    font-weight: 800 !important;
+    font-size: 14px !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     Batch Print Sheets (A4 Multi-Card Sheet: ID Badges & QR Labels)
+     -------------------------------------------------------------------------- */
+  .printable-batch-sheet-cards {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px !important;
+    background: transparent !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .printable-batch-sheet-labels {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+    background: transparent !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .printable-batch-id-card {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 2px solid #1e293b !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    text-align: center !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-shadow: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    min-height: 220px !important;
+  }
+
+  .printable-batch-id-card * {
+    color: #0f172a !important;
+    background-color: transparent !important;
+  }
+
+  .printable-batch-id-card .qr-code-wrapper {
+    background-color: #ffffff !important;
+    padding: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    display: inline-block !important;
+    margin: 8px auto !important;
+  }
+
+  .printable-batch-label {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    padding: 10px !important;
+    text-align: center !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-shadow: none !important;
+  }
+
+  .printable-batch-label * {
+    color: #0f172a !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     Reports Print Layout
+     -------------------------------------------------------------------------- */
+  .printable-report-container {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .printable-report-container * {
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+  }
+}
+

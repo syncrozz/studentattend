@@ -155,7 +155,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Header & Perspective Switcher */}
-      <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4">
+      <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4 no-print">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight">Laporan & Analitik Kehadiran</h2>
@@ -264,7 +264,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               title="Cetak Lembaran Laporan"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Cetak</span>
+              <span className="hidden sm:inline">Cetak Laporan</span>
             </button>
           </div>
         </div>
@@ -272,7 +272,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
       {/* PERSPECTIVE 1: ACTIVITY-CENTRIC */}
       {reportPerspective === 'ACTIVITY' && currentSession && (
-        <div className="space-y-6">
+        <div className="space-y-6 printable-report-container">
           {/* Summary KPIs & Set Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* KPI Box */}

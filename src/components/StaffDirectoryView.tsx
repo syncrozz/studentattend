@@ -66,6 +66,8 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
   const [selectedStudentForHistory, setSelectedStudentForHistory] = useState<Student | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isBatchPrintOpen, setIsBatchPrintOpen] = useState<boolean>(false);
+  const [batchPrintCategory, setBatchPrintCategory] = useState<string>('ALL');
+  const [batchPrintFormat, setBatchPrintFormat] = useState<'CARDS' | 'LABELS'>('CARDS');
 
   // New Student Form State
   const [newStudentId, setNewStudentId] = useState<string>('');
@@ -74,7 +76,14 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
   const [newPhone, setNewPhone] = useState<string>('');
   const [newEmail, setNewEmail] = useState<string>('');
 
-  const sets = ['ALL', 'DIA_4A', 'DIA_4B', 'DIA_4C', 'DIA_4D'];
+  // Dynamically extract all available classes
+  const uniqueClasses = Array.from(new Set(students.map((s) => s.className).filter(Boolean))).sort();
+  const sets = ['ALL', ...uniqueClasses];
+
+  // Students for batch printing
+  const batchPrintStudents = students.filter((student) =>
+    batchPrintCategory === 'ALL' ? true : student.className === batchPrintCategory
+  );
 
   // Filter students
   const filteredStudents = students.filter((student) => {
@@ -177,12 +186,15 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
             <button
               id="btn-batch-print-qr"
-              onClick={() => setIsBatchPrintOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-purple-600 text-slate-200 hover:text-white text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
-              title="Cetak Lembaran Kad QR Pelajar"
+              onClick={() => {
+                setBatchPrintCategory(selectedSet);
+                setIsBatchPrintOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
+              title="Cetak Kad ID / Kod QR mengikut Kategori Kelas atau Semua Pelajar"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Cetak QR Set</span>
+              <span>Cetak Kad ID (QR)</span>
             </button>
           </div>
         </div>
@@ -318,34 +330,37 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
       {/* STUDENT DIGITAL QR BADGE MODAL */}
       {selectedStudentForQR && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl text-center space-y-5">
-            <div className="flex justify-between items-center">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 printable-modal-wrapper">
+          <div className="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl text-center space-y-5 printable-modal-content">
+            <div className="flex justify-between items-center no-print">
               <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
                 Kad ID Digital Pelajar
               </span>
               <button
                 onClick={() => setSelectedStudentForQR(null)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 hover:text-white cursor-pointer p-1"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* ID Card Front */}
-            <div className="p-6 rounded-2xl bg-gradient-to-b from-slate-950 to-slate-900 border border-slate-800 shadow-xl space-y-4">
+            {/* ID Card Front - Formatted for Screen & Crisp 1-Page Print */}
+            <div className="p-6 rounded-2xl bg-gradient-to-b from-slate-950 to-slate-900 border border-slate-800 shadow-xl space-y-4 printable-id-card">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-2">
                   <GraduationCap className="w-4 h-4 text-indigo-400" />
-                  <span className="text-xs font-bold text-white">StudentAttend ID</span>
+                  <div className="text-left">
+                    <span className="text-xs font-bold text-white block">StudentAttend ID</span>
+                    <span className="text-[9px] text-slate-400 block tracking-tight">KPM BANDAR PENAWAR</span>
+                  </div>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getClassBadgeColor(selectedStudentForQR.className)}`}>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border badge-student-set ${getClassBadgeColor(selectedStudentForQR.className)}`}>
                   {selectedStudentForQR.className}
                 </span>
               </div>
 
               {/* QR Code */}
-              <div className="p-4 rounded-xl bg-white inline-block shadow-lg mx-auto">
+              <div className="p-4 rounded-xl bg-white inline-block shadow-lg mx-auto qr-code-wrapper">
                 <QRCodeSVG
                   value={`STUDENT|${selectedStudentForQR.studentId}`}
                   size={160}
@@ -354,11 +369,11 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                 />
               </div>
 
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 <h4 className="text-sm font-extrabold text-white">
                   {selectedStudentForQR.name}
                 </h4>
-                <div className="text-xs font-mono font-bold text-indigo-400">
+                <div className="text-xs font-mono font-bold text-indigo-400 student-id-text">
                   {selectedStudentForQR.studentId}
                 </div>
                 <div className="text-[10px] text-slate-400">
@@ -367,16 +382,16 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-400 no-print">
               Pelajar boleh memaparkan QR ini pada telefon atau kad bercetak untuk sebarang sesi kehadiran rasmi kolej.
             </p>
 
             <button
               onClick={() => window.print()}
-              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/30 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/30 cursor-pointer flex items-center justify-center gap-2 no-print"
             >
               <Printer className="w-4 h-4" />
-              <span>Cetak Kad ID Pelajar</span>
+              <span>Cetak Kad ID Pelajar (1 Halaman)</span>
             </button>
           </div>
         </div>
@@ -384,7 +399,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
       {/* STUDENT ATTENDANCE HISTORY MODAL */}
       {selectedStudentForHistory && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 no-print">
           <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
@@ -452,44 +467,192 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
       {/* BATCH PRINT SHEET MODAL */}
       {isBatchPrintOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-3xl max-h-[90vh] rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl flex flex-col space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 printable-modal-wrapper printable-batch-container">
+          <div className="w-full max-w-4xl max-h-[90vh] rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl flex flex-col space-y-4 printable-modal-content">
+            {/* Modal Header & Close (Screen only) */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 no-print">
               <div>
-                <h3 className="text-base font-bold text-white">Lembaran Kad QR Cetakan ({selectedSet})</h3>
-                <p className="text-xs text-slate-400">
-                  {filteredStudents.length} Kad QR sedia untuk dicetak pada kertas A4 / Kad Pelajar.
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-white">Cetak Kad ID & Kod QR Pelajar</h3>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
+                    {batchPrintStudents.length} Kad Dipilih
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Pilih mengikut Kategori Kelas (Set) atau cetak Semua Kategori pelajar serentak.
                 </p>
               </div>
               <button
                 onClick={() => setIsBatchPrintOpen(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 hover:text-white cursor-pointer p-1"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-2 bg-slate-950 rounded-xl">
-              {filteredStudents.map((st) => (
-                <div key={st.id} className="p-3 rounded-xl bg-white text-slate-900 text-center space-y-1 shadow">
-                  <div className="text-[10px] font-bold text-indigo-700 truncate">{st.className}</div>
-                  <div className="flex justify-center py-1">
-                    <QRCodeSVG value={`STUDENT|${st.studentId}`} size={85} level="M" />
-                  </div>
-                  <div className="text-[10px] font-extrabold truncate">{st.name}</div>
-                  <div className="text-[9px] font-mono text-slate-600">{st.studentId}</div>
+            {/* Filter & Options Toolbar (Screen only) */}
+            <div className="space-y-3 p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 no-print">
+              {/* Category / Class Selection */}
+              <div>
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <span>Pilih Kategori Kelas:</span>
                 </div>
-              ))}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    onClick={() => setBatchPrintCategory('ALL')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      batchPrintCategory === 'ALL'
+                        ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 font-bold'
+                        : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                    }`}
+                  >
+                    <span>Semua Kategori (Semua Kelas)</span>
+                    <span className="ml-1.5 text-[10px] opacity-80">({students.length})</span>
+                  </button>
+
+                  {uniqueClasses.map((cls) => {
+                    const count = students.filter((s) => s.className === cls).length;
+                    return (
+                      <button
+                        key={cls}
+                        onClick={() => setBatchPrintCategory(cls)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          batchPrintCategory === cls
+                            ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 font-bold'
+                            : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                        }`}
+                      >
+                        <span>Kelas {cls}</span>
+                        <span className="ml-1.5 text-[10px] opacity-80">({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Layout Format Selection */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-medium">Format Cetakan:</span>
+                  <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                    <button
+                      onClick={() => setBatchPrintFormat('CARDS')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                        batchPrintFormat === 'CARDS'
+                          ? 'bg-indigo-600 text-white font-bold'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Kad ID Lanyard (2 Kolum)
+                    </button>
+                    <button
+                      onClick={() => setBatchPrintFormat('LABELS')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                        batchPrintFormat === 'LABELS'
+                          ? 'bg-indigo-600 text-white font-bold'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Pelekat QR Grid (3 Kolum)
+                    </button>
+                  </div>
+                </div>
+
+                <span className="text-[11px] text-slate-400">
+                  {batchPrintFormat === 'CARDS' ? 'Kad saiz penuh dengan pengepala kolej & logo' : 'Pelekat padat untuk meja / buku rekod'}
+                </span>
+              </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
-              <button
-                onClick={() => window.print()}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Cetak Lembaran A4</span>
-              </button>
+            {/* Print Area Preview */}
+            <div className="flex-1 overflow-y-auto max-h-[50vh] p-2 bg-slate-950 rounded-2xl border border-slate-800/60">
+              {batchPrintStudents.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-xs">
+                  Tiada rekod pelajar dalam kategori ini.
+                </div>
+              ) : batchPrintFormat === 'CARDS' ? (
+                /* FORMAT 1: ID BADGES (2-COLUMN A4 SHEET) */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 printable-batch-sheet-cards">
+                  {batchPrintStudents.map((st) => (
+                    <div
+                      key={st.id}
+                      className="p-4 rounded-2xl bg-white text-slate-900 border-2 border-slate-300 shadow-sm flex flex-col justify-between printable-batch-id-card"
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <GraduationCap className="w-3.5 h-3.5 text-indigo-700" />
+                          <div className="text-left">
+                            <span className="text-[11px] font-extrabold text-slate-900 block leading-tight">StudentAttend ID</span>
+                            <span className="text-[8px] text-slate-500 block uppercase tracking-tight">KPM BANDAR PENAWAR</span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-800">
+                          {st.className}
+                        </span>
+                      </div>
+
+                      {/* QR Code */}
+                      <div className="flex justify-center py-2 qr-code-wrapper">
+                        <QRCodeSVG value={`STUDENT|${st.studentId}`} size={110} level="M" />
+                      </div>
+
+                      {/* Student Info */}
+                      <div className="text-center pt-2 border-t border-slate-100 space-y-0.5">
+                        <div className="text-xs font-black text-slate-900 leading-tight truncate">
+                          {st.name}
+                        </div>
+                        <div className="text-[11px] font-mono font-bold text-indigo-700">
+                          {st.studentId}
+                        </div>
+                        <div className="text-[9px] text-slate-500">
+                          {st.department || 'Diploma Perakaunan'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* FORMAT 2: QR LABELS (3-COLUMN A4 SHEET) */
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 printable-batch-sheet-labels">
+                  {batchPrintStudents.map((st) => (
+                    <div
+                      key={st.id}
+                      className="p-3 rounded-xl bg-white text-slate-900 text-center space-y-1 shadow-sm border border-slate-200 printable-batch-label"
+                    >
+                      <div className="text-[10px] font-bold text-indigo-700 truncate">{st.className}</div>
+                      <div className="flex justify-center py-1">
+                        <QRCodeSVG value={`STUDENT|${st.studentId}`} size={80} level="M" />
+                      </div>
+                      <div className="text-[10px] font-extrabold truncate text-slate-900">{st.name}</div>
+                      <div className="text-[9px] font-mono font-bold text-slate-600">{st.studentId}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Modal Actions (Screen only) */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800 no-print">
+              <span className="text-xs text-slate-400">
+                Sedia untuk dicetak: <strong className="text-white">{batchPrintStudents.length}</strong> pelajar ({batchPrintCategory === 'ALL' ? 'Semua Kategori' : `Kelas ${batchPrintCategory}`})
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsBatchPrintOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/30 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak {batchPrintStudents.length} Kad ID Sekarang</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
