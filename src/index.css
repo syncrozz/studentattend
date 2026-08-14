@@ -11,20 +11,21 @@
 }
 
 /* ==========================================================================
-   PRINT MEDIA STYLES - Fixes 21-page duplicate issue & Formats Clean Cards
+   PRINT MEDIA STYLES - Dynamic multi-page support based on item volume
    ========================================================================== */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm 15mm;
+    margin: 10mm 12mm;
   }
 
-  /* Reset body and canvas for print */
+  /* Reset body and canvas for natural multi-page print flow */
   html, body, #root {
     background: #ffffff !important;
     color: #0f172a !important;
     height: auto !important;
     min-height: 0 !important;
+    max-height: none !important;
     overflow: visible !important;
   }
 
@@ -40,7 +41,7 @@
     display: none !important;
   }
 
-  /* When an ID Card modal is open, completely suppress the background app view */
+  /* When an ID Card modal or Batch modal is open, completely suppress the background app view */
   .has-print-modal > *:not(.printable-modal-wrapper),
   body:has(.printable-id-card) #root > div > header,
   body:has(.printable-id-card) #root > div > div > aside,
@@ -51,7 +52,7 @@
     display: none !important;
   }
 
-  /* Reset Modal Overlay from fixed/backdrop to clean static container */
+  /* Reset Modal Overlay from fixed/backdrop to clean static container that expands across pages */
   .printable-modal-wrapper {
     position: static !important;
     inset: auto !important;
@@ -61,6 +62,8 @@
     margin: 0 !important;
     width: 100% !important;
     height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
     display: block !important;
     overflow: visible !important;
   }
@@ -74,10 +77,21 @@
     margin: 0 auto !important;
     max-width: 100% !important;
     width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Ensure all nested scroll/height containers expand fully across pages */
+  .printable-modal-wrapper *,
+  .printable-batch-container * {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   /* --------------------------------------------------------------------------
-     Single Student ID Card Print Layout (Exactly 1 Page, Clean & Sharp)
+     Single Student ID Card Print Layout (Clean & Centered)
      -------------------------------------------------------------------------- */
   .printable-id-card {
     background: #ffffff !important;
@@ -90,8 +104,8 @@
     margin: 40px auto !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    page-break-after: avoid !important;
-    break-after: avoid !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
     display: block !important;
     text-align: center !important;
   }
@@ -128,6 +142,7 @@
 
   /* --------------------------------------------------------------------------
      Batch Print Sheets (A4 Multi-Card Sheet: ID Badges & QR Labels)
+     Pages dynamically flow according to the total count of students/cards
      -------------------------------------------------------------------------- */
   .printable-batch-sheet-cards {
     display: grid !important;
@@ -136,6 +151,8 @@
     background: transparent !important;
     padding: 0 !important;
     width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .printable-batch-sheet-labels {
@@ -145,6 +162,8 @@
     background: transparent !important;
     padding: 0 !important;
     width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .printable-batch-id-card {
@@ -156,6 +175,7 @@
     text-align: center !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    break-inside: avoid-page !important;
     box-shadow: none !important;
     display: flex !important;
     flex-direction: column !important;
@@ -186,6 +206,7 @@
     text-align: center !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    break-inside: avoid-page !important;
     box-shadow: none !important;
   }
 
@@ -194,7 +215,7 @@
   }
 
   /* --------------------------------------------------------------------------
-     Reports Print Layout
+     Reports & Tables Print Layout
      -------------------------------------------------------------------------- */
   .printable-report-container {
     background: #ffffff !important;
@@ -204,11 +225,26 @@
     padding: 0 !important;
     margin: 0 !important;
     width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .printable-report-container * {
     color: #0f172a !important;
     border-color: #cbd5e1 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  table {
+    page-break-inside: auto !important;
+  }
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  thead {
+    display: table-header-group !important;
   }
 }
 

@@ -391,7 +391,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
               className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/30 cursor-pointer flex items-center justify-center gap-2 no-print"
             >
               <Printer className="w-4 h-4" />
-              <span>Cetak Kad ID Pelajar (1 Halaman)</span>
+              <span>Cetak Kad ID Pelajar (PDF)</span>
             </button>
           </div>
         </div>
