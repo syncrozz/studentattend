@@ -91,8 +91,10 @@ export const MyAttendanceView: React.FC<MyAttendanceViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. STUDENT IDENTITY BANNER & SELECTOR */}
-      <div className="rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 border border-indigo-500/30 p-5 sm:p-6 shadow-xl">
+      {/* Main Student Portal Content (Hidden during print modal) */}
+      <div className={`space-y-6 ${isPrintModalOpen ? 'no-print' : ''}`}>
+        {/* 1. STUDENT IDENTITY BANNER & SELECTOR */}
+        <div className="rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 border border-indigo-500/30 p-5 sm:p-6 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold shrink-0 shadow-lg ${getStudentColor(currentStudent.id)}`}>
@@ -353,6 +355,7 @@ export const MyAttendanceView: React.FC<MyAttendanceViewProps> = ({
             })
           )}
         </div>
+      </div>
       </div>
 
       {/* STUDENT DIGITAL QR BADGE PRINT MODAL */}

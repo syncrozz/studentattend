@@ -153,7 +153,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 printable-report-container">
       {/* Top Header & Perspective Switcher */}
       <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4 no-print">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

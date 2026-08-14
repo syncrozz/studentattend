@@ -138,10 +138,14 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
     setNewEmail('');
   };
 
+  const isAnyPrintModalOpen = Boolean(selectedStudentForQR || isBatchPrintOpen);
+
   return (
     <div className="space-y-6">
-      {/* Top Header */}
-      <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4">
+      {/* Main Directory Screen Content (Hidden during modal print) */}
+      <div className={`space-y-6 ${isAnyPrintModalOpen ? 'no-print' : ''}`}>
+        {/* Top Header */}
+        <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -327,6 +331,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
           })}
         </div>
       )}
+      </div>
 
       {/* STUDENT DIGITAL QR BADGE MODAL */}
       {selectedStudentForQR && (
