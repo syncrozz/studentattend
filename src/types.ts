@@ -118,3 +118,17 @@ export interface StudentAttendanceSummary {
     activity?: AttendanceActivity;
   }>;
 }
+
+/**
+ * Official StudentAttend App Icon — Single Source of Truth
+ * Direct Raw URL from SYNCROZZ Assets Repository
+ */
+export const OFFICIAL_STUDENT_ATTEND_ICON =
+  'https://raw.githubusercontent.com/syncrozz/syncrozz-assets/main/logo/StudentAttend/android-chrome-192x192.png';
+
+/**
+ * Official StudentAttend Open Graph Image (OGI) — Single Source of Truth
+ * Direct Raw URL from SYNCROZZ Assets Repository
+ */
+export const OFFICIAL_STUDENT_ATTEND_OGI =
+  'https://raw.githubusercontent.com/syncrozz/syncrozz-assets/main/logo/StudentAttend/OGI%20StudentAttend.jpg';

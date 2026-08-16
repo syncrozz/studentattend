@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActiveTab, UserRole } from '../types';
+import { ActiveTab, UserRole, OFFICIAL_STUDENT_ATTEND_ICON } from '../types';
 import {
   LayoutDashboard,
   QrCode,
@@ -8,7 +8,8 @@ import {
   FileSpreadsheet,
   BookOpen,
   UserSquare2,
-  GraduationCap
+  GraduationCap,
+  Smartphone
 } from 'lucide-react';
 
 interface SidebarNavProps {
@@ -16,13 +17,15 @@ interface SidebarNavProps {
   onTabChange: (tab: ActiveTab) => void;
   activeSessionName?: string;
   totalRecordsCount: number;
+  onOpenPWAInstall?: () => void;
 }
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({
   activeTab,
   onTabChange,
   activeSessionName,
-  totalRecordsCount
+  totalRecordsCount,
+  onOpenPWAInstall
 }) => {
   const navItems = [
     {
@@ -112,15 +115,38 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
         </nav>
       </div>
 
-      {/* Info Card in Sidebar Footer */}
-      <div className="hidden md:block mt-6 p-3.5 rounded-xl bg-slate-800/40 border border-slate-800 text-xs text-slate-400">
-        <div className="flex items-center gap-2 mb-1 text-slate-300 font-semibold">
-          <GraduationCap className="w-4 h-4 text-indigo-400" />
-          <span>Universal Platform</span>
+      {/* PWA Install Button & Info Card in Sidebar Footer */}
+      <div className="space-y-2 mt-6">
+        {onOpenPWAInstall && (
+          <button
+            id="sidebar-btn-pwa-install"
+            onClick={onOpenPWAInstall}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/30 text-indigo-200 text-xs font-semibold transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-2.5">
+              <img
+                src={OFFICIAL_STUDENT_ATTEND_ICON}
+                alt="StudentAttend"
+                className="w-5 h-5 rounded-md object-contain group-hover:scale-110 transition-transform ring-1 ring-white/10 shrink-0"
+                referrerPolicy="no-referrer"
+              />
+              <span>Pasang App (PWA)</span>
+            </div>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300 font-bold">
+              Instal
+            </span>
+          </button>
+        )}
+
+        <div className="hidden md:block p-3.5 rounded-xl bg-slate-800/40 border border-slate-800 text-xs text-slate-400">
+          <div className="flex items-center gap-2 mb-1 text-slate-300 font-semibold">
+            <GraduationCap className="w-4 h-4 text-indigo-400" />
+            <span>Universal Platform</span>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            1 Pelajar &rarr; Pelbagai Aktiviti &rarr; Rekod Kehadiran Berpusat.
+          </p>
         </div>
-        <p className="text-[11px] text-slate-400 leading-relaxed">
-          1 Pelajar &rarr; Pelbagai Aktiviti &rarr; Rekod Kehadiran Berpusat.
-        </p>
       </div>
     </aside>
   );

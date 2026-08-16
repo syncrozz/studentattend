@@ -1,22 +1,23 @@
 {
-  "short_name": "MyAttendance",
-  "name": "My Attendance - Sistem Kehadiran QR Kekal",
-  "description": "Sistem Pengurusan Kehadiran QR Kekal & Cloud Sync untuk Acara & Program Staf",
+  "short_name": "StudentAttend",
+  "name": "STUDENT ATTEND - Sistem Kehadiran Pelajar Universal",
+  "description": "Sistem Pengurusan Kehadiran QR Pelajar Universal & Cloud Sync untuk Acara, Kuliah & Program Rasmi",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "https://raw.githubusercontent.com/syncrozz/syncrozz-assets/main/logo/StudentAttend/android-chrome-192x192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "https://raw.githubusercontent.com/syncrozz/syncrozz-assets/main/logo/StudentAttend/android-chrome-192x192.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     }
   ],
   "start_url": "/",
+  "scope": "/",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "display": "standalone",

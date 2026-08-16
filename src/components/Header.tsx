@@ -1,5 +1,5 @@
 import React from 'react';
-import { AttendanceSession, UserRole } from '../types';
+import { AttendanceSession, UserRole, OFFICIAL_STUDENT_ATTEND_ICON } from '../types';
 import {
   QrCode,
   Volume2,
@@ -40,8 +40,13 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand & Title */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-white/20">
-            <GraduationCap className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-indigo-500/20 ring-1 ring-white/20 bg-slate-900 flex items-center justify-center shrink-0">
+            <img
+              src={OFFICIAL_STUDENT_ATTEND_ICON}
+              alt="StudentAttend Logo"
+              className="w-full h-full object-contain"
+              referrerPolicy="no-referrer"
+            />
           </div>
           <div>
             <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-attendance-pwa-v1';
+const CACHE_NAME = 'student-attend-pwa-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -33,7 +33,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests and skip chrome-extension or external firebase endpoints from strict caching
+  // Only handle GET requests and skip firestore / analytics requests from static interception
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
@@ -41,7 +41,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) {
-          // Fetch update in background
+          // Fetch update in background (stale-while-revalidate)
           fetch(event.request)
             .then((networkResponse) => {
               if (networkResponse && networkResponse.status === 200) {
@@ -51,7 +51,12 @@ self.addEventListener('fetch', (event) => {
             .catch(() => {});
           return cachedResponse;
         }
-        return fetch(event.request);
+        return fetch(event.request).catch(() => {
+          // Fallback to cached index.html for SPA routes
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+        });
       })
     );
   }

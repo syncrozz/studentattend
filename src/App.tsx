@@ -24,6 +24,7 @@ import { ReportsView } from './components/ReportsView';
 import { ConceptGuideView } from './components/ConceptGuideView';
 import { AdminPinModal } from './components/AdminPinModal';
 import { CSVImportModal } from './components/CSVImportModal';
+import { PWAInstallModal } from './components/PWAInstallModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -41,6 +42,29 @@ export default function App() {
   const [isAdminPinModalOpen, setIsAdminPinModalOpen] = useState<boolean>(false);
   const [adminActionTitle, setAdminActionTitle] = useState<string>('Sila Sahkan Akses Admin');
   const [isCSVModalOpen, setIsCSVModalOpen] = useState<boolean>(false);
+
+  // PWA Installation state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isPWAInstallModalOpen, setIsPWAInstallModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
 
   // Subscriptions to Engine / Firestore
   useEffect(() => {
@@ -187,6 +211,7 @@ export default function App() {
           onTabChange={(tab) => setActiveTab(tab)}
           activeSessionName={activeSession?.sessionName}
           totalRecordsCount={attendanceRecords.length}
+          onOpenPWAInstall={() => setIsPWAInstallModalOpen(true)}
         />
 
         {/* Main Content Body */}
@@ -291,6 +316,14 @@ export default function App() {
         isOpen={isCSVModalOpen}
         onClose={() => setIsCSVModalOpen(false)}
         onImport={handleImportStudents}
+      />
+
+      {/* PWA Install Modal */}
+      <PWAInstallModal
+        isOpen={isPWAInstallModalOpen}
+        onClose={() => setIsPWAInstallModalOpen(false)}
+        deferredPrompt={deferredPrompt}
+        onInstalled={() => setDeferredPrompt(null)}
       />
     </div>
   );
