@@ -160,6 +160,17 @@
     overflow: visible !important;
   }
 
+  .printable-batch-sheet-labels-4 {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px !important;
+    background: transparent !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   .printable-batch-id-card {
     background: #ffffff !important;
     background-color: #ffffff !important;
@@ -209,6 +220,29 @@
   }
 
   .printable-batch-label * {
+    color: #0f172a !important;
+  }
+
+  .printable-batch-label-4 {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #475569 !important;
+    border-radius: 8px !important;
+    padding: 8px 6px !important;
+    text-align: center !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    break-inside: avoid-page !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    aspect-ratio: 9 / 16 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+
+  .printable-batch-label-4 * {
     color: #0f172a !important;
   }
 

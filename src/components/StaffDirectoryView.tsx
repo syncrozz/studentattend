@@ -67,7 +67,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isBatchPrintOpen, setIsBatchPrintOpen] = useState<boolean>(false);
   const [batchPrintCategory, setBatchPrintCategory] = useState<string>('ALL');
-  const [batchPrintFormat, setBatchPrintFormat] = useState<'CARDS' | 'LABELS'>('CARDS');
+  const [batchPrintFormat, setBatchPrintFormat] = useState<'CARDS' | 'LABELS' | 'LABELS_4'>('LABELS_4');
 
   // New Student Form State
   const [newStudentId, setNewStudentId] = useState<string>('');
@@ -558,13 +558,28 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                           : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      Pelekat QR Grid (3 Kolum)
+                      Pelekat QR (3 Kolum)
+                    </button>
+                    <button
+                      id="btn-format-labels-4"
+                      onClick={() => setBatchPrintFormat('LABELS_4')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                        batchPrintFormat === 'LABELS_4'
+                          ? 'bg-indigo-600 text-white font-bold'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Pelekat QR (4 Kolum)
                     </button>
                   </div>
                 </div>
 
                 <span className="text-[11px] text-slate-400">
-                  {batchPrintFormat === 'CARDS' ? 'Kad saiz penuh dengan pengepala kolej & logo' : 'Pelekat padat untuk meja / buku rekod'}
+                  {batchPrintFormat === 'CARDS' 
+                    ? 'Kad saiz penuh dengan pengepala kolej & logo (2 Kolum)' 
+                    : batchPrintFormat === 'LABELS'
+                    ? 'Pelekat standard untuk meja / fail pelajar (3 Kolum)'
+                    : 'Pelekat padat untuk buku rekod & lembaran pelekat (4 Kolum)'}
                 </span>
               </div>
             </div>
@@ -617,7 +632,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : batchPrintFormat === 'LABELS' ? (
                 /* FORMAT 2: QR LABELS (3-COLUMN A4 SHEET) */
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 printable-batch-sheet-labels">
                   {batchPrintStudents.map((st) => (
@@ -631,6 +646,39 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                       </div>
                       <div className="text-[10px] font-extrabold truncate text-slate-900">{st.name}</div>
                       <div className="text-[9px] font-mono font-bold text-slate-600">{st.studentId}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* FORMAT 3: QR LABELS (4-COLUMN A4 SHEET) */
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 printable-batch-sheet-labels-4">
+                  {batchPrintStudents.map((st) => (
+                    <div
+                      key={st.id}
+                      className="p-2.5 rounded-xl bg-white text-slate-900 shadow-sm border border-slate-300 printable-batch-label-4 aspect-[9/16] flex flex-col justify-between box-border"
+                    >
+                      {/* Top Header */}
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-1 px-0.5">
+                        <span className="text-[9px] font-bold text-indigo-700 truncate">{st.className}</span>
+                        <span className="text-[7.5px] text-slate-500 font-extrabold uppercase tracking-tight">KPM BP</span>
+                      </div>
+
+                      {/* QR Code */}
+                      <div className="flex flex-col items-center justify-center my-auto py-1">
+                        <div className="p-1 rounded-lg bg-slate-50 border border-slate-200/80">
+                          <QRCodeSVG value={`STUDENT|${st.studentId}`} size={70} level="M" />
+                        </div>
+                      </div>
+
+                      {/* Bottom Footer Info */}
+                      <div className="pt-1 border-t border-slate-100 space-y-0.5 text-center">
+                        <div className="text-[9px] font-extrabold truncate text-slate-900 leading-tight" title={st.name}>
+                          {st.name}
+                        </div>
+                        <div className="text-[8px] font-mono font-bold text-indigo-900">
+                          {st.studentId}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
