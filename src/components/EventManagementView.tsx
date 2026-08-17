@@ -27,7 +27,8 @@ import {
   Sparkles,
   ShieldCheck,
   Maximize2,
-  Trash2
+  Trash2,
+  GraduationCap
 } from 'lucide-react';
 
 interface EventManagementViewProps {
@@ -81,6 +82,26 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
   const [newSessionClass, setNewSessionClass] = useState<string>('');
   const [newSessionSubject, setNewSessionSubject] = useState<string>('');
   const [newSessionLecturer, setNewSessionLecturer] = useState<string>('');
+
+  // Category change handler to smartly adapt defaults
+  const handleCategoryChange = (cat: ActivityCategory) => {
+    setNewActivityCat(cat);
+    if (cat === 'CLASS') {
+      if (newActivityOrganizer === 'Hal Ehwal Pelajar (HEP)' || !newActivityOrganizer) {
+        setNewActivityOrganizer('');
+      }
+      if (newActivityLocation === 'Dewan Besar Kolej') {
+        setNewActivityLocation('Bilik Kuliah / Makmal');
+      }
+    } else if (cat === 'ASSEMBLY') {
+      if (!newActivityOrganizer) {
+        setNewActivityOrganizer('Hal Ehwal Pelajar (HEP)');
+      }
+      if (!newActivityLocation || newActivityLocation === 'Bilik Kuliah / Makmal') {
+        setNewActivityLocation('Dewan Besar Kolej');
+      }
+    }
+  };
 
   // Filtered Activities
   const filteredActivities = activities.filter((act) => {
@@ -291,8 +312,14 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 pt-1">
                       <span className="flex items-center gap-1">
-                        <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                        <span>{activity.organizer}</span>
+                        {activity.category === 'CLASS' ? (
+                          <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
+                        ) : (
+                          <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                        )}
+                        <span>
+                          {activity.category === 'CLASS' ? `Pensyarah: ${activity.organizer}` : activity.organizer}
+                        </span>
                       </span>
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3.5 h-3.5 text-slate-500" />
@@ -351,7 +378,7 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                             key={session.id}
                             className={`p-4 rounded-xl border transition-all ${
                               isOpen
-                                ? 'bg-indigo-950/30 border-indigo-500/40 shadow-md shadow-indigo-500/10'
+                                ? 'bg-emerald-950/20 border-emerald-500/40 shadow-md shadow-emerald-500/10'
                                 : 'bg-slate-950/80 border-slate-800'
                             }`}
                           >
@@ -362,10 +389,10 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                                     className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
                                       isOpen
                                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse'
-                                        : 'bg-slate-800 text-slate-400 border border-slate-700'
+                                        : 'bg-blue-950/40 text-blue-300 border border-blue-800/40'
                                     }`}
                                   >
-                                    {isOpen ? '🟢 DIBUKA (AKTIF)' : '⚪ DITUTUP'}
+                                    {isOpen ? '🟢 DIBUKA (AKTIF)' : '🔵 SESI TERSEDIA'}
                                   </span>
 
                                   {session.className && (
@@ -408,20 +435,20 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                                   <button
                                     id={`btn-close-session-${session.id}`}
                                     onClick={() => onSetSessionStatus(session.id, 'CLOSED')}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 text-xs font-semibold border border-slate-700 hover:border-rose-500/40 transition-all cursor-pointer"
-                                    title="Tutup sesi kehadiran ini"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-rose-500/20 text-emerald-300 hover:text-rose-300 text-xs font-semibold border border-emerald-500/40 hover:border-rose-500/40 transition-all cursor-pointer group"
+                                    title="Sesi sedang aktif (Hijau). Klik untuk tutup sesi."
                                   >
-                                    <Square className="w-3.5 h-3.5 text-rose-400" />
-                                    <span>Tutup Sesi</span>
+                                    <Square className="w-3.5 h-3.5 text-emerald-400 group-hover:text-rose-400" />
+                                    <span>🟢 Aktif (Tutup Sesi)</span>
                                   </button>
                                 ) : (
                                   <button
                                     id={`btn-open-session-${session.id}`}
                                     onClick={() => onSetSessionStatus(session.id, 'OPEN')}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs font-semibold border border-emerald-500/30 transition-all cursor-pointer"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-semibold border border-blue-500/30 transition-all cursor-pointer"
                                     title="Buka sesi kehadiran ini untuk pengimbasan"
                                   >
-                                    <Play className="w-3.5 h-3.5 text-emerald-400" />
+                                    <Play className="w-3.5 h-3.5 text-blue-400" />
                                     <span>Buka Sesi Ini</span>
                                   </button>
                                 )}
@@ -493,7 +520,7 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Majlis Perhimpunan Pelajar Bulanan"
+                  placeholder="Contoh: Perhimpunan Bulanan Pelajar / PM2 - Pengajian Malaysia 2"
                   value={newActivityName}
                   onChange={(e) => setNewActivityName(e.target.value)}
                   className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
@@ -505,7 +532,7 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                   <label className="text-xs font-semibold text-slate-300">Kategori Universal *</label>
                   <select
                     value={newActivityCat}
-                    onChange={(e) => setNewActivityCat(e.target.value as ActivityCategory)}
+                    onChange={(e) => handleCategoryChange(e.target.value as ActivityCategory)}
                     className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
                   >
                     <option value="ASSEMBLY">Perhimpunan Pelajar</option>
@@ -523,10 +550,16 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-300">Penganjur / Jabatan</label>
+                  <label className="text-xs font-semibold text-slate-300">
+                    {newActivityCat === 'CLASS' ? 'Pensyarah Mengajar' : 'Penganjur / Jabatan'}
+                  </label>
                   <input
                     type="text"
-                    placeholder="Contoh: Hal Ehwal Pelajar (HEP)"
+                    placeholder={
+                      newActivityCat === 'CLASS'
+                        ? 'Contoh: Pn. Siti Sarah / En. Ahmad Fauzi'
+                        : 'Contoh: Hal Ehwal Pelajar (HEP)'
+                    }
                     value={newActivityOrganizer}
                     onChange={(e) => setNewActivityOrganizer(e.target.value)}
                     className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
@@ -546,7 +579,7 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300">Penerangan Ringkas (Opsional)</label>
+                <label className="text-xs font-semibold text-slate-300">Penerangan Ringkas (Tak Wajib)</label>
                 <textarea
                   rows={2}
                   placeholder="Catatan mengenai tujuan dan format kehadiran..."

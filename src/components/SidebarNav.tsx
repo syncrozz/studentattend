@@ -130,10 +130,10 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 className="w-5 h-5 rounded-md object-contain group-hover:scale-110 transition-transform ring-1 ring-white/10 shrink-0"
                 referrerPolicy="no-referrer"
               />
-              <span>Pasang App (PWA)</span>
+              <span>Pasang Application</span>
             </div>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300 font-bold">
-              Instal
+              Install
             </span>
           </button>
         )}

@@ -205,12 +205,12 @@ export const ScannerView: React.FC<ScannerViewProps> = ({
               </span>
             )}
             {currentSession?.status === 'OPEN' ? (
-              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
-                SEDANG DIBUKA
+              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold animate-pulse">
+                🟢 SEDANG DIBUKA (AKTIF)
               </span>
             ) : (
-              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-medium">
-                SESI DITUTUP
+              <span className="text-[10px] px-2 py-0.5 rounded bg-blue-950/40 text-blue-300 border border-blue-800/40 font-medium">
+                🔵 SESI TERSEDIA
               </span>
             )}
           </div>

@@ -778,7 +778,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300">E-mel Rasmi (Opsional)</label>
+                <label className="text-xs font-semibold text-slate-300">E-mel Rasmi (Tak Wajib)</label>
                 <input
                   type="email"
                   placeholder="Contoh: harith@bpenawar.kpm.edu.my"
