@@ -421,6 +421,17 @@ class AttendanceEngine {
     return updated;
   }
 
+  public addAttendanceRecord(record: AttendanceRecord) {
+    this.attendanceRecords = [record, ...this.attendanceRecords.filter((r) => r.id !== record.id)];
+    this.saveRecordsLocally();
+
+    if (db) {
+      setDoc(doc(db, 'attendance_records', record.id), sanitizeForFirestore(record), { merge: true }).catch((err) => {
+        console.warn(`[Firestore Error] Failed to write attendance record ${record.id}:`, err);
+      });
+    }
+  }
+
   public saveAttendanceRecords(records: AttendanceRecord[]) {
     this.attendanceRecords = records;
     this.saveRecordsLocally();
@@ -518,8 +529,7 @@ class AttendanceEngine {
       method: method
     };
 
-    const updatedRecords = [newRecord, ...this.attendanceRecords];
-    this.saveAttendanceRecords(updatedRecords);
+    this.addAttendanceRecord(newRecord);
 
     return {
       success: true,

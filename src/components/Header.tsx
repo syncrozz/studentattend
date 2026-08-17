@@ -9,7 +9,9 @@ import {
   RotateCcw,
   Sparkles,
   UserCheck,
-  GraduationCap
+  GraduationCap,
+  Cloud,
+  CheckCircle2
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -91,6 +93,17 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Tiada Sesi Aktif</span>
             </div>
           )}
+
+          {/* Cloud Sync Status Badge */}
+          <div
+            id="header-cloud-sync-status"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-300 text-xs font-medium"
+            title="Pangkalan Data Cloud Firestore Diselaraskan (Real-time Live Sync)"
+          >
+            <Cloud className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden md:inline">Cloud Live Sync</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          </div>
 
           {/* Quick Scanner Action Button */}
           <button
