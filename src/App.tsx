@@ -103,8 +103,13 @@ export default function App() {
   const handleNavigateTab = (tab: ActiveTab) => {
     setActiveTab(tab);
     const targetPath = tab === 'qr' ? '/qr' : tab === 'dashboard' ? '/' : `/${tab}`;
-    if (window.location.pathname !== targetPath) {
-      window.history.pushState(null, '', targetPath);
+    try {
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath);
+      }
+    } catch (e) {
+      console.warn('pushState error:', e);
+      window.location.hash = tab === 'dashboard' ? '' : `#/${tab}`;
     }
   };
 

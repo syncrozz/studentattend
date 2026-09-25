@@ -103,6 +103,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
               <button
                 key={item.id}
                 id={`sidebar-nav-${item.id}`}
+                type="button"
                 onClick={() => onTabChange(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                   isActive
