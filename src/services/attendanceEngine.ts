@@ -15,7 +15,12 @@ import {
   INITIAL_SESSIONS,
   INITIAL_ATTENDANCE_RECORDS
 } from '../data/mockData';
-import { db, sanitizeForFirestore } from './firebase';
+import {
+  db,
+  sanitizeForFirestore,
+  normalizeTimestamp,
+  formatOperationalError
+} from './firebase';
 import {
   collection,
   doc,
@@ -23,6 +28,37 @@ import {
   deleteDoc,
   onSnapshot
 } from 'firebase/firestore';
+
+const DEVICE_ID_KEY = 'studentattend_device_id';
+
+function getOrCreateDeviceId(): string {
+  let devId = safeStorage.getItem(DEVICE_ID_KEY);
+  if (!devId) {
+    devId = `DEV-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+    safeStorage.setItem(DEVICE_ID_KEY, devId);
+  }
+  return devId;
+}
+
+function normalizeEventTimestamps(event: any): Event {
+  return {
+    ...event,
+    createdAt: normalizeTimestamp(event.createdAt) || new Date().toISOString(),
+    activatedAt: event.activatedAt ? normalizeTimestamp(event.activatedAt) : undefined,
+    firstScanAt: event.firstScanAt ? normalizeTimestamp(event.firstScanAt) : undefined,
+    lastScanAt: event.lastScanAt ? normalizeTimestamp(event.lastScanAt) : undefined,
+    closedAt: event.closedAt ? normalizeTimestamp(event.closedAt) : undefined
+  };
+}
+
+function normalizeRecordTimestamps(rec: any): AttendanceRecord {
+  const ts = normalizeTimestamp(rec.scannedAt || rec.timestamp) || new Date().toISOString();
+  return {
+    ...rec,
+    scannedAt: ts,
+    timestamp: ts
+  };
+}
 
 const STORAGE_KEYS = {
   EVENTS: 'studentattend_events_v3',
@@ -68,6 +104,48 @@ class AttendanceEngine {
     this.initializeData();
   }
 
+  public getDeviceId(): string {
+    return getOrCreateDeviceId();
+  }
+
+  /**
+   * Enforces the Single-Active-Event invariant across any event array.
+   * If more than one event is ACTIVE or OPEN, the one with the latest activatedAt wins;
+   * older ones are transitioned to COMPLETED with an authoritative closedAt.
+   */
+  public enforceSingleActiveEvent(events: Event[]): { events: Event[]; demotedEvents: Event[] } {
+    const activeEvents = events.filter((e) => e.status === 'ACTIVE' || e.status === 'OPEN');
+    if (activeEvents.length <= 1) {
+      return { events, demotedEvents: [] };
+    }
+
+    // Sort by activatedAt descending (most recent first)
+    const sortedActive = [...activeEvents].sort((a, b) => {
+      const timeA = a.activatedAt ? new Date(a.activatedAt).getTime() : 0;
+      const timeB = b.activatedAt ? new Date(b.activatedAt).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    const trueActiveId = sortedActive[0].id;
+    const demotedEvents: Event[] = [];
+    const now = new Date().toISOString();
+
+    const resolvedEvents = events.map((e) => {
+      if ((e.status === 'ACTIVE' || e.status === 'OPEN') && e.id !== trueActiveId) {
+        const demoted: Event = {
+          ...e,
+          status: 'COMPLETED',
+          closedAt: e.closedAt || now
+        };
+        demotedEvents.push(demoted);
+        return demoted;
+      }
+      return e;
+    });
+
+    return { events: resolvedEvents, demotedEvents };
+  }
+
   private initializeData() {
     // 1. Try local storage first for instant startup
     const isInitialized = safeStorage.getItem(STORAGE_KEYS.INITIALIZED);
@@ -88,28 +166,37 @@ class AttendanceEngine {
           return st;
         });
 
-        this.events = storedEvents ? JSON.parse(storedEvents) : [...INITIAL_EVENTS];
+        const rawEvents: Event[] = storedEvents ? JSON.parse(storedEvents) : [...INITIAL_EVENTS];
+        const normalizedEvents = rawEvents.map(normalizeEventTimestamps);
+        const { events: validatedEvents } = this.enforceSingleActiveEvent(normalizedEvents);
+        this.events = validatedEvents;
+
         this.activities = storedActivities ? JSON.parse(storedActivities) : [...INITIAL_ACTIVITIES];
         this.sessions = storedSessions ? JSON.parse(storedSessions) : [...INITIAL_SESSIONS];
-        this.attendanceRecords = storedRecords ? JSON.parse(storedRecords) : [...INITIAL_ATTENDANCE_RECORDS];
+        const rawRecords: AttendanceRecord[] = storedRecords ? JSON.parse(storedRecords) : [...INITIAL_ATTENDANCE_RECORDS];
+        this.attendanceRecords = rawRecords.map(normalizeRecordTimestamps);
 
         // Ensure legacy sessions and events stay bidirectionally synchronized
         this.syncEventsAndSessions();
       } catch (e) {
-        console.warn('Error reading from localStorage, resetting to initial dataset', e);
-        this.resetToDefaultData();
+        console.warn('Error reading from localStorage, resetting local state', e);
+        this.loadDefaultDatasetLocally();
       }
     } else {
-      this.resetToDefaultData();
+      // BACKLOG-001 Hardening: Load locally only on uninitialized boot; do not blast mock data to cloud Firestore
+      this.loadDefaultDatasetLocally();
     }
   }
 
-  public resetToDefaultData() {
-    this.events = [...INITIAL_EVENTS];
+  /**
+   * Loads initial dataset locally into memory and cache without polluting remote Firestore (BACKLOG-001)
+   */
+  public loadDefaultDatasetLocally() {
+    this.events = INITIAL_EVENTS.map(normalizeEventTimestamps);
     this.students = [...INITIAL_STUDENTS];
     this.activities = [...INITIAL_ACTIVITIES];
     this.sessions = [...INITIAL_SESSIONS];
-    this.attendanceRecords = [...INITIAL_ATTENDANCE_RECORDS];
+    this.attendanceRecords = INITIAL_ATTENDANCE_RECORDS.map(normalizeRecordTimestamps);
 
     this.syncEventsAndSessions();
 
@@ -119,7 +206,10 @@ class AttendanceEngine {
     this.saveSessionsLocally();
     this.saveRecordsLocally();
     safeStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+  }
 
+  public resetToDefaultData() {
+    this.loadDefaultDatasetLocally();
     if (db) {
       this.syncInitialToFirestore();
     }
@@ -219,18 +309,26 @@ class AttendanceEngine {
         q,
         (snapshot) => {
           if (!snapshot.empty) {
-            const data = snapshot.docs.map((docSnap) => docSnap.data() as Event);
-            this.events = data;
+            const rawData = snapshot.docs.map((docSnap) => normalizeEventTimestamps(docSnap.data() as Event));
+            const { events: validatedEvents, demotedEvents } = this.enforceSingleActiveEvent(rawData);
+            this.events = validatedEvents;
             this.syncEventsAndSessions();
             this.saveEventsLocally();
             this.saveSessionsLocally();
             callback(this.events);
+
+            // Reconcile and heal cloud race conditions if multiple active events were found
+            if (demotedEvents.length > 0 && db) {
+              demotedEvents.forEach((demoted) => {
+                setDoc(doc(db, 'events', demoted.id), sanitizeForFirestore(demoted), { merge: true }).catch(() => {});
+              });
+            }
           } else {
             callback(this.events);
           }
         },
         (error) => {
-          console.warn('Firestore events sync error, using local data:', error);
+          console.warn('Firestore events sync notice, using local cache:', formatOperationalError(error));
           callback(this.events);
         }
       );
@@ -354,7 +452,7 @@ class AttendanceEngine {
         q,
         (snapshot) => {
           if (!snapshot.empty) {
-            const data = snapshot.docs.map((docSnap) => docSnap.data() as AttendanceRecord);
+            const data = snapshot.docs.map((docSnap) => normalizeRecordTimestamps(docSnap.data() as AttendanceRecord));
             this.attendanceRecords = data;
             this.saveRecordsLocally();
             callback(this.attendanceRecords);
@@ -363,7 +461,7 @@ class AttendanceEngine {
           }
         },
         (error) => {
-          console.warn('Firestore records sync error, using local data:', error);
+          console.warn('Firestore records sync notice, using local cache:', formatOperationalError(error));
           callback(this.attendanceRecords);
         }
       );
@@ -475,9 +573,34 @@ class AttendanceEngine {
   }
 
   public deleteEvent(eventId: string): Event[] {
+    const target = this.events.find((e) => e.id === eventId);
+    if (!target) return [...this.events];
+
+    // Safety guard 1: ACTIVE events cannot be deleted directly
+    if (target.status === 'ACTIVE' || target.status === 'OPEN') {
+      console.warn(
+        `[SES 4.5] Cannot delete event ${eventId}: status is ${target.status}. Active attendance events cannot be deleted directly. Sila tamatkan acara dahulu.`
+      );
+      return [...this.events];
+    }
+
+    // Safety guard 2: ARCHIVED events cannot be deleted (historical integrity)
+    if (target.status === 'ARCHIVED') {
+      console.warn(
+        `[SES 4.5] Cannot delete event ${eventId}: status is ARCHIVED. Rekod arkib dilindungi untuk integriti audit.`
+      );
+      return [...this.events];
+    }
+
+    const recordsToDelete = this.attendanceRecords.filter(
+      (r) => r.eventId === eventId || r.sessionId === eventId
+    );
+
     this.events = this.events.filter((e) => e.id !== eventId);
     this.sessions = this.sessions.filter((s) => s.id !== eventId && s.activityId !== eventId);
-    this.attendanceRecords = this.attendanceRecords.filter((r) => r.eventId !== eventId && r.sessionId !== eventId);
+    this.attendanceRecords = this.attendanceRecords.filter(
+      (r) => r.eventId !== eventId && r.sessionId !== eventId
+    );
 
     this.saveEventsLocally();
     this.saveSessionsLocally();
@@ -485,9 +608,13 @@ class AttendanceEngine {
 
     if (db) {
       deleteDoc(doc(db, 'events', eventId)).catch((err) => {
-        console.warn(`Error deleting event ${eventId} from Firestore:`, err);
+        console.warn(`Error deleting event ${eventId} from Firestore:`, formatOperationalError(err));
       });
       deleteDoc(doc(db, 'sessions', eventId)).catch(() => {});
+      // Cascade delete corresponding attendance records in Firestore
+      recordsToDelete.forEach((r) => {
+        deleteDoc(doc(db, 'attendance_records', r.id)).catch(() => {});
+      });
     }
 
     return [...this.events];
@@ -542,7 +669,7 @@ class AttendanceEngine {
       const activeEvt = this.events.find((e) => e.id === eventId);
       if (activeEvt) {
         setDoc(doc(db, 'events', activeEvt.id), sanitizeForFirestore(activeEvt), { merge: true }).catch((err) => {
-          console.warn('Error activating event in Firestore:', err);
+          console.warn('Error activating event in Firestore:', formatOperationalError(err));
         });
       }
       // Also persist any auto-completed events to Firestore for multi-client consistency
@@ -561,7 +688,18 @@ class AttendanceEngine {
    */
   public closeEvent(eventId: string): Event[] {
     const target = this.events.find((e) => e.id === eventId);
-    if (!target || target.status === 'COMPLETED' || target.status === 'ARCHIVED') {
+    if (!target) return [...this.events];
+
+    // Idempotent: already COMPLETED or ARCHIVED
+    if (target.status === 'COMPLETED' || target.status === 'ARCHIVED') {
+      return [...this.events];
+    }
+
+    // Safety guard: Cannot close an event that is still in DRAFT
+    if (target.status !== 'ACTIVE' && target.status !== 'OPEN') {
+      console.warn(
+        `[SES 4.5] Cannot close event ${eventId}: status is ${target.status}. Only ACTIVE events can be closed.`
+      );
       return [...this.events];
     }
 
@@ -586,7 +724,7 @@ class AttendanceEngine {
       const closedEvt = this.events.find((e) => e.id === eventId);
       if (closedEvt) {
         setDoc(doc(db, 'events', closedEvt.id), sanitizeForFirestore(closedEvt), { merge: true }).catch((err) => {
-          console.warn('Error closing event in Firestore:', err);
+          console.warn('Error closing event in Firestore:', formatOperationalError(err));
         });
       }
     }
@@ -707,6 +845,9 @@ class AttendanceEngine {
 
     // 7. Create Authoritative Attendance Record
     const recordId = `REC-${event.id}-${student.id}`;
+    const effectiveDeviceId = scannerDeviceId || getOrCreateDeviceId();
+    const effectiveOperatorId = operatorId || 'OPERATOR';
+
     const newRecord: AttendanceRecord = {
       id: recordId,
       eventId: event.id,
@@ -718,8 +859,8 @@ class AttendanceEngine {
       timestamp: now, // compatibility
       status: 'PRESENT',
       method: method,
-      scannerDeviceId,
-      operatorId
+      scannerDeviceId: effectiveDeviceId,
+      operatorId: effectiveOperatorId
     };
 
     this.attendanceRecords = [newRecord, ...this.attendanceRecords.filter((r) => r.id !== newRecord.id)];
@@ -727,7 +868,7 @@ class AttendanceEngine {
 
     if (db) {
       setDoc(doc(db, 'attendance_records', newRecord.id), sanitizeForFirestore(newRecord), { merge: true }).catch((err) => {
-        console.warn(`[Firestore Error] Failed to write attendance record ${newRecord.id}:`, err);
+        console.warn(`[Firestore Error] Failed to write attendance record ${newRecord.id}:`, formatOperationalError(err));
       });
     }
 
@@ -748,7 +889,9 @@ class AttendanceEngine {
   public processScan(
     qrString: string,
     method: AttendanceMethod = 'CAMERA_SCAN',
-    targetEventOrSessionId?: string
+    targetEventOrSessionId?: string,
+    scannerDeviceId?: string,
+    operatorId?: string
   ): ScanResult {
     const now = new Date().toISOString();
 
@@ -788,8 +931,14 @@ class AttendanceEngine {
       };
     }
 
-    // 3. Delegate to recordAttendance
-    const result = this.recordAttendance(activeEvent.id, studentId, method);
+    // 3. Delegate to recordAttendance with device identity
+    const result = this.recordAttendance(
+      activeEvent.id,
+      studentId,
+      method,
+      scannerDeviceId || getOrCreateDeviceId(),
+      operatorId || 'OPERATOR'
+    );
 
     // Provide legacy session compatibility if required by consumers
     const legacySession = this.sessions.find((s) => s.id === activeEvent!.id);

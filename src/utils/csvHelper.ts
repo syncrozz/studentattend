@@ -184,19 +184,30 @@ export const parseStudentCSV = (csvText: string): Student[] => {
     const phone = phoneIndex >= 0 && phoneIndex < rawCols.length ? rawCols[phoneIndex] : '';
     const email = emailIndex >= 0 && emailIndex < rawCols.length ? rawCols[emailIndex] : '';
 
+    const cleanId = studentId.trim().toUpperCase();
+    if (!cleanId || cleanId === 'ID' || cleanId === 'NO_PELAJAR') continue;
+
     // If name is missing or identical to class name, fallback to student ID
     if (!name || name.trim().toUpperCase() === className.trim().toUpperCase()) {
-      name = studentId;
+      name = cleanId;
     }
 
-    resultStudents.push({
-      id: studentId.trim().toUpperCase(),
-      studentId: studentId.trim().toUpperCase(),
+    const studentRecord: Student = {
+      id: cleanId,
+      studentId: cleanId,
       name: name.trim().toUpperCase(),
       className: className.trim().toUpperCase(),
       phone: phone.trim(),
       email: email.trim()
-    });
+    };
+
+    // Deduplicate within same CSV import (idempotency)
+    const existingIdx = resultStudents.findIndex((s) => s.id === cleanId);
+    if (existingIdx >= 0) {
+      resultStudents[existingIdx] = studentRecord;
+    } else {
+      resultStudents.push(studentRecord);
+    }
   }
 
   return resultStudents;

@@ -1,29 +1,72 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Master collections for StudentAttend
-    match /students/{studentId} {
-      allow read, write: if true;
-    }
-    match /activities/{activityId} {
-      allow read, write: if true;
-    }
-    match /sessions/{sessionId} {
-      allow read, write: if true;
-    }
-    match /attendance_records/{recordId} {
-      allow read, write: if true;
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
     }
 
-    // Legacy paths compatibility
-    match /staff/{staffId} {
-      allow read, write: if true;
+    function incoming() {
+      return request.resource.data;
     }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Master collections for StudentAttend (Unified SES 4.5 Model)
     match /events/{eventId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if isValidId(eventId)
+        && incoming().id == eventId
+        && incoming().title is string && incoming().title.size() <= 200
+        && incoming().status in ['DRAFT', 'ACTIVE', 'COMPLETED', 'ARCHIVED', 'OPEN', 'CLOSED'];
+      allow update: if isValidId(eventId)
+        && incoming().id == existing().id
+        && incoming().status in ['DRAFT', 'ACTIVE', 'COMPLETED', 'ARCHIVED', 'OPEN', 'CLOSED']
+        // Terminal state lock: completed or archived events cannot regress back to active
+        && (existing().status != 'COMPLETED' || incoming().status in ['COMPLETED', 'ARCHIVED'])
+        && (existing().status != 'ARCHIVED' || incoming().status == 'ARCHIVED');
+      allow delete: if isValidId(eventId)
+        // Safety guard: Active events cannot be deleted directly
+        && (resource == null || (resource.data.status != 'ACTIVE' && resource.data.status != 'OPEN'));
+    }
+
+    match /students/{studentId} {
+      allow read: if true;
+      allow create, update: if isValidId(studentId)
+        && incoming().id == studentId
+        && incoming().name is string && incoming().name.size() <= 200
+        && incoming().className is string && incoming().className.size() <= 50;
+      allow delete: if isValidId(studentId);
+    }
+
+    match /attendance_records/{recordId} {
+      allow read: if true;
+      allow create: if isValidId(recordId)
+        && incoming().id == recordId
+        && incoming().eventId is string && incoming().eventId.size() <= 128
+        && incoming().studentId is string && incoming().studentId.size() <= 128
+        && incoming().status in ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'];
+      allow update: if isValidId(recordId)
+        // Immutability of eventId and studentId once recorded
+        && incoming().eventId == existing().eventId
+        && incoming().studentId == existing().studentId
+        && incoming().status in ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'];
+      allow delete: if isValidId(recordId);
+    }
+
+    // Legacy paths compatibility (Phase 1 bridge)
+    match /sessions/{sessionId} {
+      allow read, write: if isValidId(sessionId);
+    }
+    match /activities/{activityId} {
+      allow read, write: if isValidId(activityId);
+    }
+    match /staff/{staffId} {
+      allow read, write: if isValidId(staffId);
     }
     match /attendanceRecords/{recordId} {
-      allow read, write: if true;
+      allow read, write: if isValidId(recordId);
     }
   }
 }
