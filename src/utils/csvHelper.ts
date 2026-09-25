@@ -1,4 +1,4 @@
-import { Student, AttendanceRecord, AttendanceSession } from '../types';
+import { Student, AttendanceRecord, AttendanceSession, Event } from '../types';
 
 export const exportStudentsToCSV = (students: Student[]): string => {
   const headers = ['Bil', 'No_Telefon', 'Nama_Set', 'Nama_Pelajar', 'No_Pelajar', 'Email'];
@@ -10,6 +10,63 @@ export const exportStudentsToCSV = (students: Student[]): string => {
     `"${s.studentId || s.id}"`,
     `"${s.email || ''}"`
   ]);
+
+  return [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+};
+
+export const exportEventAttendanceToCSV = (
+  event: Event,
+  students: Student[],
+  records: AttendanceRecord[]
+): string => {
+  const headers = [
+    'Bil',
+    'No_Pelajar',
+    'Nama_Pelajar',
+    'Set_Kelas',
+    'Status_Kehadiran',
+    'Masa_Imbasan',
+    'Kaedah',
+    'Tajuk_Acara',
+    'Kategori'
+  ];
+
+  const recordMap = new Map<string, AttendanceRecord>();
+  records
+    .filter((r) => (r.eventId === event.id || r.sessionId === event.id) && r.status === 'PRESENT')
+    .forEach((r) => recordMap.set(r.studentId, r));
+
+  // Determine target students
+  let targetStudents = students;
+  if (event.rosterType === 'CLASS_SET' && event.targetClasses && event.targetClasses.length > 0) {
+    targetStudents = students.filter((s) => event.targetClasses!.includes(s.className));
+  }
+
+  const rows = targetStudents.map((s, idx) => {
+    const rec = recordMap.get(s.id);
+    const status = rec ? 'HADIR' : 'TIDAK_HADIR';
+    const scanTime = rec?.scannedAt || rec?.timestamp
+      ? new Date(rec.scannedAt || rec.timestamp).toLocaleTimeString('ms-MY', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        })
+      : '-';
+    const method = rec?.method || '-';
+
+    return [
+      idx + 1,
+      `"${s.studentId || s.id}"`,
+      `"${s.name.replace(/"/g, '""')}"`,
+      `"${s.className}"`,
+      `"${status}"`,
+      `"${scanTime}"`,
+      `"${method}"`,
+      `"${event.title.replace(/"/g, '""')}"`,
+      `"${event.type}"`
+    ];
+  });
 
   return [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
 };

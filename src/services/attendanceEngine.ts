@@ -1,15 +1,16 @@
 import {
   Student,
+  Event,
+  EventStatus,
   AttendanceActivity,
   AttendanceSession,
   AttendanceRecord,
-  EventStatus,
   ScanResult,
-  AttendanceMethod,
-  ActivityCategory
+  AttendanceMethod
 } from '../types';
 import {
   INITIAL_STUDENTS,
+  INITIAL_EVENTS,
   INITIAL_ACTIVITIES,
   INITIAL_SESSIONS,
   INITIAL_ATTENDANCE_RECORDS
@@ -24,35 +25,60 @@ import {
 } from 'firebase/firestore';
 
 const STORAGE_KEYS = {
+  EVENTS: 'studentattend_events_v3',
   STUDENTS: 'studentattend_students_v2',
   ACTIVITIES: 'studentattend_activities_v2',
   SESSIONS: 'studentattend_sessions_v2',
-  RECORDS: 'studentattend_records_v2',
-  INITIALIZED: 'studentattend_initialized_v2'
+  RECORDS: 'studentattend_records_v3',
+  INITIALIZED: 'studentattend_initialized_v3'
+};
+
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        return localStorage.getItem(key);
+      }
+    } catch {
+      // In-memory or restricted environment
+    }
+    return null;
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(key, value);
+      }
+    } catch {
+      // In-memory or restricted environment
+    }
+  }
 };
 
 class AttendanceEngine {
+  private events: Event[] = [];
   private students: Student[] = [];
-  private activities: AttendanceActivity[] = [];
-  private sessions: AttendanceSession[] = [];
   private attendanceRecords: AttendanceRecord[] = [];
 
-  private isFirestoreConnected: boolean = false;
+  // Legacy collections preserved for non-destructive backwards compatibility
+  private activities: AttendanceActivity[] = [];
+  private sessions: AttendanceSession[] = [];
 
   constructor() {
     this.initializeData();
   }
 
   private initializeData() {
-    // 1. Try local storage first for fast startup
-    const isInitialized = localStorage.getItem(STORAGE_KEYS.INITIALIZED);
+    // 1. Try local storage first for instant startup
+    const isInitialized = safeStorage.getItem(STORAGE_KEYS.INITIALIZED);
 
     if (isInitialized) {
       try {
-        const storedStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-        const storedActivities = localStorage.getItem(STORAGE_KEYS.ACTIVITIES);
-        const storedSessions = localStorage.getItem(STORAGE_KEYS.SESSIONS);
-        const storedRecords = localStorage.getItem(STORAGE_KEYS.RECORDS);
+        const storedEvents = safeStorage.getItem(STORAGE_KEYS.EVENTS);
+        const storedStudents = safeStorage.getItem(STORAGE_KEYS.STUDENTS);
+        const storedActivities = safeStorage.getItem(STORAGE_KEYS.ACTIVITIES);
+        const storedSessions = safeStorage.getItem(STORAGE_KEYS.SESSIONS);
+        const storedRecords = safeStorage.getItem(STORAGE_KEYS.RECORDS);
 
         const loadedStudents: Student[] = storedStudents ? JSON.parse(storedStudents) : INITIAL_STUDENTS;
         this.students = loadedStudents.map((st) => {
@@ -61,9 +87,14 @@ class AttendanceEngine {
           }
           return st;
         });
-        this.activities = storedActivities ? JSON.parse(storedActivities) : INITIAL_ACTIVITIES;
-        this.sessions = storedSessions ? JSON.parse(storedSessions) : INITIAL_SESSIONS;
-        this.attendanceRecords = storedRecords ? JSON.parse(storedRecords) : INITIAL_ATTENDANCE_RECORDS;
+
+        this.events = storedEvents ? JSON.parse(storedEvents) : [...INITIAL_EVENTS];
+        this.activities = storedActivities ? JSON.parse(storedActivities) : [...INITIAL_ACTIVITIES];
+        this.sessions = storedSessions ? JSON.parse(storedSessions) : [...INITIAL_SESSIONS];
+        this.attendanceRecords = storedRecords ? JSON.parse(storedRecords) : [...INITIAL_ATTENDANCE_RECORDS];
+
+        // Ensure legacy sessions and events stay bidirectionally synchronized
+        this.syncEventsAndSessions();
       } catch (e) {
         console.warn('Error reading from localStorage, resetting to initial dataset', e);
         this.resetToDefaultData();
@@ -71,33 +102,86 @@ class AttendanceEngine {
     } else {
       this.resetToDefaultData();
     }
-
-    if (db) {
-      this.isFirestoreConnected = true;
-    }
   }
 
   public resetToDefaultData() {
+    this.events = [...INITIAL_EVENTS];
     this.students = [...INITIAL_STUDENTS];
     this.activities = [...INITIAL_ACTIVITIES];
     this.sessions = [...INITIAL_SESSIONS];
     this.attendanceRecords = [...INITIAL_ATTENDANCE_RECORDS];
 
+    this.syncEventsAndSessions();
+
+    this.saveEventsLocally();
     this.saveStudentsLocally();
     this.saveActivitiesLocally();
     this.saveSessionsLocally();
     this.saveRecordsLocally();
-    localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+    safeStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
 
-    // Optionally sync initial data to Firestore if available
     if (db) {
       this.syncInitialToFirestore();
     }
   }
 
+  /**
+   * Bridges Events and legacy Sessions bidirectionally so neither legacy UI
+   * nor new unified components fail during Phase 1.
+   */
+  private syncEventsAndSessions() {
+    // Map any missing event into sessions
+    this.events.forEach((event) => {
+      const existingSessionIndex = this.sessions.findIndex((s) => s.id === event.id);
+      const sessionEquivalent: AttendanceSession = {
+        id: event.id,
+        activityId: event.id,
+        activityName: event.title,
+        sessionName: event.title,
+        date: event.date || (event.createdAt ? event.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
+        startTime: event.startTime || (event.activatedAt ? event.activatedAt.substring(11, 16) : '08:00'),
+        endTime: event.endTime || (event.closedAt ? event.closedAt.substring(11, 16) : '17:00'),
+        status: event.status === 'ACTIVE' ? 'OPEN' : event.status === 'COMPLETED' ? 'CLOSED' : (event.status as EventStatus),
+        attendanceMethod: 'QR',
+        location: event.location,
+        organizer: event.organizer,
+        className: event.targetClasses && event.targetClasses.length > 0 ? event.targetClasses.join(', ') : undefined,
+        createdAt: event.createdAt
+      };
+
+      if (existingSessionIndex >= 0) {
+        this.sessions[existingSessionIndex] = {
+          ...this.sessions[existingSessionIndex],
+          sessionName: event.title,
+          status: sessionEquivalent.status,
+          location: event.location || this.sessions[existingSessionIndex].location,
+          organizer: event.organizer || this.sessions[existingSessionIndex].organizer
+        };
+      } else {
+        this.sessions.push(sessionEquivalent);
+      }
+    });
+
+    // Ensure attendance records have eventId set
+    this.attendanceRecords = this.attendanceRecords.map((r) => {
+      const eventId = r.eventId || r.sessionId;
+      const scannedAt = r.scannedAt || r.timestamp || new Date().toISOString();
+      return {
+        ...r,
+        eventId,
+        scannedAt,
+        timestamp: scannedAt
+      };
+    });
+  }
+
   private async syncInitialToFirestore() {
     if (!db) return;
     try {
+      // Sync events
+      for (const event of this.events) {
+        await setDoc(doc(db, 'events', event.id), sanitizeForFirestore(event), { merge: true });
+      }
       // Sync students
       for (const student of this.students) {
         await setDoc(doc(db, 'students', student.id), sanitizeForFirestore(student), { merge: true });
@@ -119,7 +203,44 @@ class AttendanceEngine {
     }
   }
 
-  // --- Subscriptions ---
+  // =========================================================================
+  // --- REAL-TIME SUBSCRIPTIONS ---
+  // =========================================================================
+
+  public subscribeEvents(callback: (events: Event[]) => void): () => void {
+    if (!db) {
+      callback(this.events);
+      return () => {};
+    }
+
+    try {
+      const q = collection(db, 'events');
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const data = snapshot.docs.map((docSnap) => docSnap.data() as Event);
+            this.events = data;
+            this.syncEventsAndSessions();
+            this.saveEventsLocally();
+            this.saveSessionsLocally();
+            callback(this.events);
+          } else {
+            callback(this.events);
+          }
+        },
+        (error) => {
+          console.warn('Firestore events sync error, using local data:', error);
+          callback(this.events);
+        }
+      );
+      return unsubscribe;
+    } catch (e) {
+      callback(this.events);
+      return () => {};
+    }
+  }
+
   public subscribeStudents(callback: (students: Student[]) => void): () => void {
     if (!db) {
       callback(this.students);
@@ -253,42 +374,474 @@ class AttendanceEngine {
     }
   }
 
-  // --- Local Persistence Helpers ---
+  // =========================================================================
+  // --- LOCAL PERSISTENCE HELPERS ---
+  // =========================================================================
+
+  private saveEventsLocally() {
+    safeStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(this.events));
+  }
+
   private saveStudentsLocally() {
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(this.students));
+    safeStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(this.students));
   }
 
   private saveActivitiesLocally() {
-    localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(this.activities));
+    safeStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(this.activities));
   }
 
   private saveSessionsLocally() {
-    localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(this.sessions));
+    safeStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(this.sessions));
   }
 
   private saveRecordsLocally() {
-    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(this.attendanceRecords));
+    safeStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(this.attendanceRecords));
   }
 
-  // --- Getters ---
+  // =========================================================================
+  // --- UNIFIED EVENT METHODS (PHASE 1 CORE) ---
+  // =========================================================================
+
+  public getEvents(): Event[] {
+    return [...this.events];
+  }
+
+  public getEventById(eventId: string): Event | undefined {
+    return this.events.find((e) => e.id === eventId);
+  }
+
+  /**
+   * Returns the single currently active attendance event
+   */
+  public getActiveEvent(): Event | null {
+    return this.events.find((e) => e.status === 'ACTIVE' || e.status === 'OPEN') || null;
+  }
+
+  /**
+   * Sediakan Acara (Admin defines WHAT, System records WHEN)
+   * No manual start/end times required!
+   */
+  public createEvent(
+    eventData: Omit<Event, 'id' | 'createdAt' | 'status'> & Partial<Event>
+  ): Event {
+    const id =
+      eventData.id ||
+      `EVT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random()
+        .toString(36)
+        .substring(2, 6)
+        .toUpperCase()}`;
+
+    const newEvent: Event = {
+      id,
+      title: eventData.title.trim(),
+      type: eventData.type || 'ASSEMBLY',
+      rosterType: eventData.rosterType || 'ALL',
+      targetClasses: eventData.targetClasses || [],
+      location: eventData.location?.trim() || undefined,
+      organizer: eventData.organizer?.trim() || undefined,
+      description: eventData.description?.trim() || undefined,
+      status: eventData.status || 'DRAFT',
+      createdAt: eventData.createdAt || new Date().toISOString(),
+      createdById: eventData.createdById
+    };
+
+    this.events = [newEvent, ...this.events.filter((e) => e.id !== newEvent.id)];
+    this.syncEventsAndSessions();
+    this.saveEventsLocally();
+    this.saveSessionsLocally();
+
+    if (db) {
+      setDoc(doc(db, 'events', newEvent.id), sanitizeForFirestore(newEvent), { merge: true }).catch((err) => {
+        console.warn(`Error writing event ${newEvent.id} to Firestore:`, err);
+      });
+    }
+
+    return newEvent;
+  }
+
+  public updateEvent(updatedEvent: Event): Event[] {
+    this.events = this.events.map((e) => (e.id === updatedEvent.id ? updatedEvent : e));
+    this.syncEventsAndSessions();
+    this.saveEventsLocally();
+    this.saveSessionsLocally();
+
+    if (db) {
+      setDoc(doc(db, 'events', updatedEvent.id), sanitizeForFirestore(updatedEvent), { merge: true }).catch((err) => {
+        console.warn(`Error updating event ${updatedEvent.id} in Firestore:`, err);
+      });
+    }
+
+    return [...this.events];
+  }
+
+  public deleteEvent(eventId: string): Event[] {
+    this.events = this.events.filter((e) => e.id !== eventId);
+    this.sessions = this.sessions.filter((s) => s.id !== eventId && s.activityId !== eventId);
+    this.attendanceRecords = this.attendanceRecords.filter((r) => r.eventId !== eventId && r.sessionId !== eventId);
+
+    this.saveEventsLocally();
+    this.saveSessionsLocally();
+    this.saveRecordsLocally();
+
+    if (db) {
+      deleteDoc(doc(db, 'events', eventId)).catch((err) => {
+        console.warn(`Error deleting event ${eventId} from Firestore:`, err);
+      });
+      deleteDoc(doc(db, 'sessions', eventId)).catch(() => {});
+    }
+
+    return [...this.events];
+  }
+
+  /**
+   * AKTIFKAN KEHADIRAN
+   * Authoritative activation: System records activatedAt timestamp automatically.
+   * Closes any previous active attendance so only 1 event is actively accepting scans.
+   */
+  public activateEvent(eventId: string): Event[] {
+    const target = this.events.find((e) => e.id === eventId);
+    if (!target) return [...this.events];
+
+    // INVARIANT GUARD: COMPLETED and ARCHIVED events cannot be re-activated
+    if (target.status === 'COMPLETED' || target.status === 'ARCHIVED') {
+      console.warn(
+        `[SES 4.5] Cannot activate event ${eventId}: status is ${target.status}. Closed events are immutable.`
+      );
+      return [...this.events];
+    }
+
+    const now = new Date().toISOString();
+    const previouslyActiveEvents: Event[] = [];
+
+    this.events = this.events.map((e) => {
+      if (e.id === eventId) {
+        return {
+          ...e,
+          status: 'ACTIVE',
+          activatedAt: e.activatedAt || now
+        };
+      }
+      // If another event was active, transition it to COMPLETED
+      if (e.status === 'ACTIVE' || e.status === 'OPEN') {
+        const completedEvt: Event = {
+          ...e,
+          status: 'COMPLETED',
+          closedAt: e.closedAt || now
+        };
+        previouslyActiveEvents.push(completedEvt);
+        return completedEvt;
+      }
+      return e;
+    });
+
+    this.syncEventsAndSessions();
+    this.saveEventsLocally();
+    this.saveSessionsLocally();
+
+    if (db) {
+      const activeEvt = this.events.find((e) => e.id === eventId);
+      if (activeEvt) {
+        setDoc(doc(db, 'events', activeEvt.id), sanitizeForFirestore(activeEvt), { merge: true }).catch((err) => {
+          console.warn('Error activating event in Firestore:', err);
+        });
+      }
+      // Also persist any auto-completed events to Firestore for multi-client consistency
+      previouslyActiveEvents.forEach((closedEvt) => {
+        setDoc(doc(db, 'events', closedEvt.id), sanitizeForFirestore(closedEvt), { merge: true }).catch(() => {});
+      });
+    }
+
+    return [...this.events];
+  }
+
+  /**
+   * TAMATKAN KEHADIRAN
+   * Authoritative closure: System records closedAt timestamp automatically.
+   * Locks the event into COMPLETED state.
+   */
+  public closeEvent(eventId: string): Event[] {
+    const target = this.events.find((e) => e.id === eventId);
+    if (!target || target.status === 'COMPLETED' || target.status === 'ARCHIVED') {
+      return [...this.events];
+    }
+
+    const now = new Date().toISOString();
+
+    this.events = this.events.map((e) => {
+      if (e.id === eventId) {
+        return {
+          ...e,
+          status: 'COMPLETED',
+          closedAt: e.closedAt || now
+        };
+      }
+      return e;
+    });
+
+    this.syncEventsAndSessions();
+    this.saveEventsLocally();
+    this.saveSessionsLocally();
+
+    if (db) {
+      const closedEvt = this.events.find((e) => e.id === eventId);
+      if (closedEvt) {
+        setDoc(doc(db, 'events', closedEvt.id), sanitizeForFirestore(closedEvt), { merge: true }).catch((err) => {
+          console.warn('Error closing event in Firestore:', err);
+        });
+      }
+    }
+
+    return [...this.events];
+  }
+
+  // =========================================================================
+  // --- CORE ATTENDANCE RECORDING & DUPLICATE PREVENTION ---
+  // =========================================================================
+
+  /**
+   * Records attendance directly against an Event.
+   * Guarantees:
+   * 1. Event must be ACTIVE (otherwise rejected with EVENT_NOT_ACTIVE)
+   * 2. Student must exist in Master Directory (otherwise STUDENT_NOT_FOUND)
+   * 3. Roster eligibility check if restricted by class set (otherwise NOT_ELIGIBLE)
+   * 4. Enforces Idempotent Duplicate Prevention at Service Layer (ALREADY_RECORDED)
+   * 5. Automatically updates firstScanAt, lastScanAt on the Event
+   * 6. Generates authoritative scannedAt timestamp
+   */
+  public recordAttendance(
+    eventId: string,
+    studentId: string,
+    method: AttendanceMethod = 'CAMERA_SCAN',
+    scannerDeviceId?: string,
+    operatorId?: string
+  ): ScanResult {
+    const now = new Date().toISOString();
+
+    // 1. Verify Event Exists
+    const event = this.events.find((e) => e.id === eventId);
+    if (!event) {
+      return {
+        success: false,
+        code: 'NO_ACTIVE_EVENT',
+        message: 'Acara tidak ditemui dalam sistem.',
+        timestamp: now
+      };
+    }
+
+    // 2. Verify Event is ACTIVE
+    if (event.status !== 'ACTIVE' && event.status !== 'OPEN') {
+      return {
+        success: false,
+        code: 'EVENT_NOT_ACTIVE',
+        message: `Acara "${event.title}" tidak aktif untuk penerimaan kehadiran (Status: ${event.status}).`,
+        timestamp: now,
+        event
+      };
+    }
+
+    // 3. Find Student in Master Data
+    const student = this.getStudentById(studentId);
+    if (!student) {
+      return {
+        success: false,
+        code: 'STUDENT_NOT_FOUND',
+        message: `Pelajar dengan No. ID [${studentId}] tiada dalam direktori pelajar.`,
+        timestamp: now,
+        event
+      };
+    }
+
+    // 4. Validate Roster Eligibility (if event restricted by class set)
+    if (
+      event.rosterType === 'CLASS_SET' &&
+      event.targetClasses &&
+      event.targetClasses.length > 0 &&
+      !event.targetClasses.includes(student.className)
+    ) {
+      return {
+        success: false,
+        code: 'NOT_ELIGIBLE',
+        message: `Pelajar ${student.name} (${student.className}) bukan peserta berdaftar untuk acara ini (Sasaran: ${event.targetClasses.join(', ')}).`,
+        timestamp: now,
+        student,
+        event
+      };
+    }
+
+    // 5. Enforce Idempotency / Duplicate Prevention at Service Layer
+    const isAlreadyRecorded = this.attendanceRecords.some(
+      (r) =>
+        (r.eventId === event.id || r.sessionId === event.id) &&
+        r.studentId === student.id &&
+        r.status === 'PRESENT'
+    );
+
+    if (isAlreadyRecorded) {
+      const existingRecord = this.attendanceRecords.find(
+        (r) =>
+          (r.eventId === event.id || r.sessionId === event.id) &&
+          r.studentId === student.id
+      );
+      return {
+        success: false,
+        code: 'ALREADY_RECORDED',
+        isDuplicate: true,
+        message: `Kehadiran ${student.name} (${student.className}) telah direkodkan sebelum ini.`,
+        student,
+        event,
+        timestamp: now,
+        record: existingRecord
+      };
+    }
+
+    // 6. Update Event Operational Timeline
+    if (!event.firstScanAt) {
+      event.firstScanAt = now;
+    }
+    event.lastScanAt = now;
+    this.saveEventsLocally();
+
+    if (db) {
+      setDoc(doc(db, 'events', event.id), sanitizeForFirestore(event), { merge: true }).catch(() => {});
+    }
+
+    // 7. Create Authoritative Attendance Record
+    const recordId = `REC-${event.id}-${student.id}`;
+    const newRecord: AttendanceRecord = {
+      id: recordId,
+      eventId: event.id,
+      sessionId: event.id, // compatibility
+      studentId: student.id,
+      studentName: student.name,
+      className: student.className,
+      scannedAt: now,
+      timestamp: now, // compatibility
+      status: 'PRESENT',
+      method: method,
+      scannerDeviceId,
+      operatorId
+    };
+
+    this.attendanceRecords = [newRecord, ...this.attendanceRecords.filter((r) => r.id !== newRecord.id)];
+    this.saveRecordsLocally();
+
+    if (db) {
+      setDoc(doc(db, 'attendance_records', newRecord.id), sanitizeForFirestore(newRecord), { merge: true }).catch((err) => {
+        console.warn(`[Firestore Error] Failed to write attendance record ${newRecord.id}:`, err);
+      });
+    }
+
+    return {
+      success: true,
+      code: 'RECORDED',
+      message: `Kehadiran berjaya direkodkan: ${student.name} (${student.className})`,
+      student,
+      event,
+      timestamp: now,
+      record: newRecord
+    };
+  }
+
+  /**
+   * Process raw QR scan string and route to recordAttendance
+   */
+  public processScan(
+    qrString: string,
+    method: AttendanceMethod = 'CAMERA_SCAN',
+    targetEventOrSessionId?: string
+  ): ScanResult {
+    const now = new Date().toISOString();
+
+    // 1. Identify Target Event
+    let activeEvent: Event | null = null;
+    if (targetEventOrSessionId) {
+      activeEvent = this.events.find((e) => e.id === targetEventOrSessionId) || null;
+      if (!activeEvent) {
+        // Check if legacy session was passed
+        const matchedSession = this.sessions.find((s) => s.id === targetEventOrSessionId);
+        if (matchedSession) {
+          activeEvent = this.events.find((e) => e.id === matchedSession.id) || null;
+        }
+      }
+    } else {
+      activeEvent = this.getActiveEvent();
+    }
+
+    if (!activeEvent) {
+      return {
+        success: false,
+        code: 'NO_ACTIVE_EVENT',
+        message: 'Tiada acara aktif pada masa ini. Sila aktifkan acara terlebih dahulu.',
+        timestamp: now
+      };
+    }
+
+    // 2. Parse Student Identifier from QR
+    const studentId = this.parseStudentQR(qrString);
+    if (!studentId) {
+      return {
+        success: false,
+        code: 'INVALID_QR',
+        message: 'Format kod QR tidak sah atau tidak dikenali.',
+        timestamp: now,
+        event: activeEvent
+      };
+    }
+
+    // 3. Delegate to recordAttendance
+    const result = this.recordAttendance(activeEvent.id, studentId, method);
+
+    // Provide legacy session compatibility if required by consumers
+    const legacySession = this.sessions.find((s) => s.id === activeEvent!.id);
+    const legacyActivity = this.activities.find((a) => a.id === activeEvent!.id);
+
+    return {
+      ...result,
+      session: legacySession,
+      activity: legacyActivity
+    };
+  }
+
+  public parseStudentQR(rawString: string): string | null {
+    if (!rawString) return null;
+    const clean = rawString.trim();
+
+    // Check for STUDENT|PDA-2502-005 format
+    if (clean.startsWith('STUDENT|')) {
+      const parts = clean.split('|');
+      return parts[1]?.trim() || null;
+    }
+
+    // Check for legacy STAFF|ST001 format
+    if (clean.startsWith('STAFF|')) {
+      const parts = clean.split('|');
+      return parts[1]?.trim() || null;
+    }
+
+    // Check for JSON payload: { studentId: "PDA-2502-005" } or { id: "PDA-2502-005" }
+    if (clean.startsWith('{') && clean.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(clean);
+        return parsed.studentId || parsed.id || parsed.noPelajar || null;
+      } catch {
+        // Not valid JSON
+      }
+    }
+
+    // Direct PDA-2502-XXX format check
+    if (/^[A-Za-z0-9\-_]{3,20}$/.test(clean)) {
+      return clean;
+    }
+
+    return clean;
+  }
+
+  // =========================================================================
+  // --- STUDENT DIRECTORY METHODS ---
+  // =========================================================================
+
   public getStudents(): Student[] {
     return [...this.students];
-  }
-
-  public getActivities(): AttendanceActivity[] {
-    return [...this.activities];
-  }
-
-  public getSessions(): AttendanceSession[] {
-    return [...this.sessions];
-  }
-
-  public getAttendanceRecords(): AttendanceRecord[] {
-    return [...this.attendanceRecords];
-  }
-
-  public getActiveSession(): AttendanceSession | null {
-    return this.sessions.find((s) => s.status === 'OPEN') || null;
   }
 
   public getStudentById(studentId: string): Student | undefined {
@@ -302,7 +855,6 @@ class AttendanceEngine {
     );
   }
 
-  // --- Mutation Methods ---
   public saveStudentsList(students: Student[]) {
     this.students = students;
     this.saveStudentsLocally();
@@ -343,17 +895,77 @@ class AttendanceEngine {
     }
   }
 
+  // =========================================================================
+  // --- ATTENDANCE RECORDS QUERY METHODS ---
+  // =========================================================================
+
+  public getAttendanceRecords(): AttendanceRecord[] {
+    return [...this.attendanceRecords];
+  }
+
+  public getEventAttendanceSummary(eventId: string) {
+    const event = this.events.find((e) => e.id === eventId);
+    if (!event) return null;
+
+    const eventRecords = this.attendanceRecords.filter((r) => r.eventId === eventId || r.sessionId === eventId);
+    const presentStudentIds = new Set(eventRecords.filter((r) => r.status === 'PRESENT').map((r) => r.studentId));
+
+    // Determine target roster students
+    let targetStudents = this.students;
+    if (event.rosterType === 'CLASS_SET' && event.targetClasses && event.targetClasses.length > 0) {
+      targetStudents = this.students.filter((s) => event.targetClasses!.includes(s.className));
+    }
+
+    const totalStudents = targetStudents.length;
+    const presentCount = targetStudents.filter((s) => presentStudentIds.has(s.id)).length;
+    const absentCount = Math.max(0, totalStudents - presentCount);
+    const percentage = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
+
+    return {
+      event,
+      totalStudents,
+      presentCount,
+      absentCount,
+      percentage,
+      records: eventRecords
+    };
+  }
+
+  // =========================================================================
+  // --- BACKWARDS COMPATIBILITY WRAPPERS (LEGACY SUPPORT) ---
+  // =========================================================================
+
+  public getActivities(): AttendanceActivity[] {
+    return [...this.activities];
+  }
+
+  public getSessions(): AttendanceSession[] {
+    return [...this.sessions];
+  }
+
+  public getActiveSession(): AttendanceSession | null {
+    const activeEvt = this.getActiveEvent();
+    if (activeEvt) {
+      return this.sessions.find((s) => s.id === activeEvt.id) || {
+        id: activeEvt.id,
+        activityId: activeEvt.id,
+        sessionName: activeEvt.title,
+        date: activeEvt.createdAt.split('T')[0],
+        startTime: activeEvt.activatedAt ? activeEvt.activatedAt.substring(11, 16) : '08:00',
+        endTime: activeEvt.closedAt ? activeEvt.closedAt.substring(11, 16) : '17:00',
+        status: 'OPEN',
+        attendanceMethod: 'QR',
+        location: activeEvt.location,
+        organizer: activeEvt.organizer,
+        createdAt: activeEvt.createdAt
+      };
+    }
+    return this.sessions.find((s) => s.status === 'OPEN') || null;
+  }
+
   public saveActivities(activities: AttendanceActivity[]) {
     this.activities = activities;
     this.saveActivitiesLocally();
-
-    if (db) {
-      activities.forEach((activity) => {
-        setDoc(doc(db, 'activities', activity.id), sanitizeForFirestore(activity), { merge: true }).catch((err) => {
-          console.warn(`Error saving activity ${activity.id} to Firestore:`, err);
-        });
-      });
-    }
   }
 
   public addActivity(activity: AttendanceActivity) {
@@ -361,21 +973,25 @@ class AttendanceEngine {
     this.saveActivities(updated);
   }
 
+  public updateActivity(updatedActivity: AttendanceActivity): AttendanceActivity[] {
+    this.activities = this.activities.map((a) => (a.id === updatedActivity.id ? updatedActivity : a));
+    this.saveActivitiesLocally();
+    return [...this.activities];
+  }
+
+  public deleteActivity(activityId: string): AttendanceActivity[] {
+    this.activities = this.activities.filter((a) => a.id !== activityId);
+    this.saveActivitiesLocally();
+    this.deleteEvent(activityId);
+    return this.activities;
+  }
+
   public saveSessions(sessions: AttendanceSession[]) {
     this.sessions = sessions;
     this.saveSessionsLocally();
-
-    if (db) {
-      sessions.forEach((session) => {
-        setDoc(doc(db, 'sessions', session.id), sanitizeForFirestore(session), { merge: true }).catch((err) => {
-          console.warn(`Error saving session ${session.id} to Firestore:`, err);
-        });
-      });
-    }
   }
 
   public addSession(session: AttendanceSession) {
-    // If new session is OPEN, automatically close other open sessions
     let updated = [...this.sessions];
     if (session.status === 'OPEN') {
       updated = updated.map((s) => ({
@@ -383,8 +999,7 @@ class AttendanceEngine {
         status: s.id === session.id ? 'OPEN' : s.status === 'OPEN' ? 'CLOSED' : s.status
       } as AttendanceSession));
     }
-    
-    // Add or replace
+
     const index = updated.findIndex((s) => s.id === session.id);
     if (index >= 0) {
       updated[index] = session;
@@ -393,42 +1008,54 @@ class AttendanceEngine {
     }
 
     this.saveSessions(updated);
+
+    // Also mirror into Events
+    this.createEvent({
+      id: session.id,
+      title: session.sessionName,
+      type: 'ASSEMBLY',
+      rosterType: session.className ? 'CLASS_SET' : 'ALL',
+      targetClasses: session.className ? [session.className] : [],
+      location: session.location,
+      organizer: session.organizer,
+      status: session.status === 'OPEN' ? 'ACTIVE' : 'DRAFT'
+    });
+
     return updated;
+  }
+
+  public updateSession(updatedSession: AttendanceSession): AttendanceSession[] {
+    this.sessions = this.sessions.map((s) => (s.id === updatedSession.id ? updatedSession : s));
+    this.saveSessionsLocally();
+
+    // Mirror to event
+    const evt = this.getEventById(updatedSession.id);
+    if (evt) {
+      this.updateEvent({
+        ...evt,
+        title: updatedSession.sessionName,
+        location: updatedSession.location || evt.location,
+        organizer: updatedSession.organizer || evt.organizer
+      });
+    }
+
+    return [...this.sessions];
   }
 
   public deleteSession(sessionId: string): AttendanceSession[] {
-    const updated = this.sessions.filter((s) => s.id !== sessionId);
-    this.sessions = updated;
+    this.sessions = this.sessions.filter((s) => s.id !== sessionId);
     this.saveSessionsLocally();
-
-    if (db) {
-      deleteDoc(doc(db, 'sessions', sessionId)).catch((err) => {
-        console.warn(`Error deleting session ${sessionId} from Firestore:`, err);
-      });
-    }
-
-    return updated;
-  }
-
-  public deleteActivity(activityId: string): AttendanceActivity[] {
-    const updated = this.activities.filter((a) => a.id !== activityId);
-    this.activities = updated;
-    this.saveActivitiesLocally();
-
-    // Also remove associated sessions
-    const sessionsToRemove = this.sessions.filter((s) => s.activityId === activityId);
-    sessionsToRemove.forEach((s) => this.deleteSession(s.id));
-
-    if (db) {
-      deleteDoc(doc(db, 'activities', activityId)).catch((err) => {
-        console.warn(`Error deleting activity ${activityId} from Firestore:`, err);
-      });
-    }
-
-    return updated;
+    this.deleteEvent(sessionId);
+    return this.sessions;
   }
 
   public setSessionStatus(sessionId: string, newStatus: EventStatus): AttendanceSession[] {
+    if (newStatus === 'OPEN') {
+      this.activateEvent(sessionId);
+    } else if (newStatus === 'CLOSED') {
+      this.closeEvent(sessionId);
+    }
+
     const updated = this.sessions.map((session) => {
       if (session.id === sessionId) {
         return { ...session, status: newStatus };
@@ -443,272 +1070,69 @@ class AttendanceEngine {
     return updated;
   }
 
-  public addAttendanceRecord(record: AttendanceRecord) {
-    this.attendanceRecords = [record, ...this.attendanceRecords.filter((r) => r.id !== record.id)];
-    this.saveRecordsLocally();
-
-    if (db) {
-      setDoc(doc(db, 'attendance_records', record.id), sanitizeForFirestore(record), { merge: true }).catch((err) => {
-        console.warn(`[Firestore Error] Failed to write attendance record ${record.id}:`, err);
-      });
-    }
-  }
-
-  public saveAttendanceRecords(records: AttendanceRecord[]) {
-    this.attendanceRecords = records;
-    this.saveRecordsLocally();
-
-    if (db) {
-      records.forEach((record) => {
-        setDoc(doc(db, 'attendance_records', record.id), sanitizeForFirestore(record), { merge: true }).catch((err) => {
-          console.warn(`Error saving attendance record ${record.id} to Firestore:`, err);
-        });
-      });
-    }
-  }
-
-  // --- CORE ATTENDANCE SCANNING & VERIFICATION ENGINE ---
-  public processScan(
-    qrString: string,
-    method: AttendanceMethod = 'CAMERA_SCAN',
-    targetSessionId?: string
-  ): ScanResult {
-    const now = new Date().toISOString();
-
-    // 1. Identify Target Session
-    let activeSession: AttendanceSession | null = null;
-    if (targetSessionId) {
-      activeSession = this.sessions.find((s) => s.id === targetSessionId) || null;
-    } else {
-      activeSession = this.getActiveSession();
-    }
-
-    if (!activeSession || activeSession.status !== 'OPEN') {
-      return {
-        success: false,
-        code: 'NO_ACTIVE_EVENT',
-        message: 'Imbasan tidak dibenarkan kerana sesi ini belum dibuka atau telah ditutup.',
-        timestamp: now
-      };
-    }
-
-    // 2. Parse and validate student identifier from QR
-    const studentId = this.parseStudentQR(qrString);
-    if (!studentId) {
-      return {
-        success: false,
-        code: 'INVALID_QR',
-        message: 'Format kod QR tidak sah atau tidak dikenali.',
-        timestamp: now,
-        session: activeSession
-      };
-    }
-
-    // 3. Find student in Master Data
-    const student = this.getStudentById(studentId);
-    if (!student) {
-      return {
-        success: false,
-        code: 'STUDENT_NOT_FOUND',
-        message: `Pelajar dengan No. ID [${studentId}] tiada dalam pangkalan data.`,
-        timestamp: now,
-        session: activeSession
-      };
-    }
-
-    // Find linked activity
-    const activity = this.activities.find((a) => a.id === activeSession!.activityId);
-
-    // 4. Duplicate Check: One student per session
-    const isAlreadyRecorded = this.attendanceRecords.some(
-      (r) => r.sessionId === activeSession!.id && r.studentId === student.id && r.status === 'PRESENT'
-    );
-
-    if (isAlreadyRecorded) {
-      const existingRecord = this.attendanceRecords.find(
-        (r) => r.sessionId === activeSession!.id && r.studentId === student.id
-      );
-      return {
-        success: false,
-        code: 'ALREADY_RECORDED',
-        isDuplicate: true,
-        message: `Kehadiran ${student.name} telah direkodkan sebelum ini.`,
-        student,
-        session: activeSession,
-        activity,
-        timestamp: now,
-        record: existingRecord
-      };
-    }
-
-    // 5. Create new Attendance Record
-    const newRecord: AttendanceRecord = {
-      id: `REC-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      sessionId: activeSession.id,
-      studentId: student.id,
-      timestamp: now,
-      status: 'PRESENT',
-      method: method
-    };
-
-    this.addAttendanceRecord(newRecord);
-
-    return {
-      success: true,
-      code: 'RECORDED',
-      message: `Kehadiran berjaya direkodkan: ${student.name}`,
-      student,
-      session: activeSession,
-      activity,
-      timestamp: now,
-      record: newRecord
-    };
-  }
-
-  public parseStudentQR(rawString: string): string | null {
-    if (!rawString) return null;
-    const clean = rawString.trim();
-
-    // Check for STUDENT|PDA-2502-005 format
-    if (clean.startsWith('STUDENT|')) {
-      const parts = clean.split('|');
-      return parts[1]?.trim() || null;
-    }
-
-    // Check for legacy STAFF|ST001 format
-    if (clean.startsWith('STAFF|')) {
-      const parts = clean.split('|');
-      return parts[1]?.trim() || null;
-    }
-
-    // Check for JSON payload: { studentId: "PDA-2502-005" } or { id: "PDA-2502-005" }
-    if (clean.startsWith('{') && clean.endsWith('}')) {
-      try {
-        const parsed = JSON.parse(clean);
-        return parsed.studentId || parsed.id || parsed.noPelajar || null;
-      } catch {
-        // Not valid JSON
-      }
-    }
-
-    // Direct PDA-2502-XXX format check
-    if (/^[A-Za-z0-9\-_]{3,20}$/.test(clean)) {
-      return clean;
-    }
-
-    return clean;
-  }
-
-  // --- ANALYTICS & REPORTING COMPUTATIONS (SOURCE OF TRUTH DERIVED) ---
   public getSessionAttendanceSummary(sessionId: string) {
-    const session = this.sessions.find((s) => s.id === sessionId);
-    if (!session) return null;
-
-    const activity = this.activities.find((a) => a.id === session.activityId);
-    const sessionRecords = this.attendanceRecords.filter((r) => r.sessionId === sessionId);
-    const presentStudentIds = new Set(sessionRecords.filter((r) => r.status === 'PRESENT').map((r) => r.studentId));
-
-    // Determine target students (if session is class-specific, filter by class)
-    let targetStudents = this.students;
-    if (session.className) {
-      targetStudents = this.students.filter((s) => s.className === session.className);
+    const summary = this.getEventAttendanceSummary(sessionId);
+    if (summary) {
+      const session = this.sessions.find((s) => s.id === sessionId);
+      const activity = this.activities.find((a) => a.id === session?.activityId);
+      return {
+        ...summary,
+        session: session || {
+          id: summary.event.id,
+          sessionName: summary.event.title,
+          activityId: summary.event.id,
+          date: summary.event.createdAt.split('T')[0],
+          startTime: summary.event.activatedAt ? summary.event.activatedAt.substring(11, 16) : '08:00',
+          endTime: summary.event.closedAt ? summary.event.closedAt.substring(11, 16) : '17:00',
+          status: summary.event.status === 'ACTIVE' ? 'OPEN' : 'CLOSED',
+          attendanceMethod: 'QR'
+        } as AttendanceSession,
+        activity
+      };
     }
-
-    const totalStudents = targetStudents.length;
-    const presentCount = targetStudents.filter((s) => presentStudentIds.has(s.id)).length;
-    const absentCount = Math.max(0, totalStudents - presentCount);
-    const percentage = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
-
-    return {
-      session,
-      activity,
-      totalStudents,
-      presentCount,
-      absentCount,
-      percentage,
-      records: sessionRecords
-    };
+    return null;
   }
 
   public getStudentOverallSummary(studentId: string) {
     const student = this.getStudentById(studentId);
     if (!student) return null;
 
-    // Find all closed or open sessions applicable to this student
-    const applicableSessions = this.sessions.filter((session) => {
-      if (session.status === 'ARCHIVED') return false;
-      if (session.className && session.className !== student.className) return false;
+    const applicableEvents = this.events.filter((e) => {
+      if (e.status === 'ARCHIVED' || e.status === 'DRAFT') return false;
+      if (e.rosterType === 'CLASS_SET' && e.targetClasses && e.targetClasses.length > 0) {
+        return e.targetClasses.includes(student.className);
+      }
       return true;
     });
 
-    const totalSessions = applicableSessions.length;
-    const studentRecords = this.attendanceRecords.filter((r) => r.studentId === student.id && r.status === 'PRESENT');
+    const totalEvents = applicableEvents.length;
+    const studentRecords = this.attendanceRecords.filter(
+      (r) => r.studentId === student.id && r.status === 'PRESENT'
+    );
     const presentCount = studentRecords.length;
-    const absentCount = Math.max(0, totalSessions - presentCount);
-    const percentage = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 0;
-
-    // Breakdown by category
-    const categoryBreakdown: Record<string, { total: number; present: number; percentage: number }> = {};
-
-    applicableSessions.forEach((session) => {
-      const activity = this.activities.find((a) => a.id === session.activityId);
-      const cat = session.category || activity?.category || 'OTHER';
-      
-      if (!categoryBreakdown[cat]) {
-        categoryBreakdown[cat] = { total: 0, present: 0, percentage: 0 };
-      }
-      categoryBreakdown[cat].total += 1;
-
-      const attended = studentRecords.some((r) => r.sessionId === session.id);
-      if (attended) {
-        categoryBreakdown[cat].present += 1;
-      }
-    });
-
-    Object.keys(categoryBreakdown).forEach((cat) => {
-      const item = categoryBreakdown[cat];
-      item.percentage = item.total > 0 ? Math.round((item.present / item.total) * 100) : 0;
-    });
-
-    // Recent records
-    const recentRecords = studentRecords.slice(0, 10).map((record) => {
-      const session = this.sessions.find((s) => s.id === record.sessionId)!;
-      const activity = session ? this.activities.find((a) => a.id === session.activityId) : undefined;
-      return { record, session, activity };
-    });
+    const absentCount = Math.max(0, totalEvents - presentCount);
+    const percentage = totalEvents > 0 ? Math.round((presentCount / totalEvents) * 100) : 0;
 
     return {
       student,
-      totalSessions,
+      totalSessions: totalEvents,
       presentCount,
       absentCount,
       percentage,
-      categoryBreakdown,
-      recentRecords
+      categoryBreakdown: {},
+      recentRecords: []
     };
   }
 
-  // --- Backward compatibility aliases ---
+  // Legacy staff & events aliases
   public subscribeStaff(callback: (staff: Student[]) => void) {
     return this.subscribeStudents(callback);
-  }
-  public subscribeEvents(callback: (events: AttendanceSession[]) => void) {
-    return this.subscribeSessions(callback);
   }
   public getStaffList() {
     return this.getStudents();
   }
-  public getEvents() {
-    return this.getSessions();
-  }
   public saveStaffList(staff: Student[]) {
     this.saveStudentsList(staff);
-  }
-  public saveEvents(events: AttendanceSession[]) {
-    this.saveSessions(events);
-  }
-  public setEventStatus(eventId: string, newStatus: EventStatus) {
-    return this.setSessionStatus(eventId, newStatus);
   }
   public deleteStaff(staffId: string) {
     this.deleteStudent(staffId);

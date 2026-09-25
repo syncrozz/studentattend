@@ -2,222 +2,236 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import confetti from 'canvas-confetti';
 import {
+  Event,
   Student,
-  AttendanceSession,
   AttendanceRecord,
   ScanResult,
   AttendanceMethod
 } from '../types';
 import { soundService } from '../services/soundService';
 import {
-  getCategoryBadgeColor,
-  getCategoryLabel,
-  getClassBadgeColor,
-  getInitials,
-  getStudentColor,
-  getStudentDisplayName
-} from '../utils/studentUtils';
-import {
   Camera,
   CameraOff,
   CheckCircle2,
   AlertTriangle,
   XCircle,
-  Volume2,
-  VolumeX,
-  Sparkles,
   Users,
   Search,
   Clock,
-  ArrowRight,
-  ShieldAlert,
-  GraduationCap,
-  CalendarCheck
+  CalendarCheck,
+  Check,
+  X,
+  MapPin,
+  ArrowRight
 } from 'lucide-react';
 
 interface ScannerViewProps {
-  activeSession: AttendanceSession | null;
-  allSessions: AttendanceSession[];
+  activeEvent: Event | null;
+  allEvents: Event[];
   students: Student[];
   attendanceRecords: AttendanceRecord[];
   isAdmin: boolean;
-  onRequestAdminAccess: (actionName?: string) => void;
-  onProcessScan: (qrString: string, method: AttendanceMethod, targetSessionId?: string) => ScanResult;
-  onGoToActivities: () => void;
+  onProcessScan: (qrString: string, method?: AttendanceMethod, targetEventId?: string) => ScanResult;
+  onCloseEvent: (eventId: string) => void;
+  onGoToEvents: () => void;
   soundEnabled: boolean;
   onToggleSound: (enabled: boolean) => void;
+  onRequestAdminAccess?: (actionName?: string) => void;
 }
 
 export const ScannerView: React.FC<ScannerViewProps> = ({
-  activeSession,
-  allSessions,
+  activeEvent,
+  allEvents,
   students,
   attendanceRecords,
   isAdmin,
-  onRequestAdminAccess,
   onProcessScan,
-  onGoToActivities,
+  onCloseEvent,
+  onGoToEvents,
   soundEnabled,
-  onToggleSound
+  onToggleSound,
+  onRequestAdminAccess
 }) => {
-  const [selectedSessionId, setSelectedSessionId] = useState<string>(activeSession?.id || allSessions[0]?.id || '');
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [manualInput, setManualInput] = useState<string>('');
-  const [cooldown, setCooldown] = useState<boolean>(false);
+  const [lastResult, setLastResult] = useState<ScanResult | null>(null);
+  const [manualStudentId, setManualStudentId] = useState<string>('');
+  const [isConfirmCloseModalOpen, setIsConfirmCloseModalOpen] = useState<boolean>(false);
 
-  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
-  const qrRegionId = 'qr-reader-studentattend';
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isScanningRef = useRef<boolean>(false);
+  const lastScanCodeRef = useRef<string>('');
+  const lastScanTimeRef = useRef<number>(0);
 
-  // Ensure selectedSessionId defaults to activeSession when changed
-  useEffect(() => {
-    if (activeSession) {
-      setSelectedSessionId(activeSession.id);
+  // Compute live event attendance records
+  const currentEventRecords = activeEvent
+    ? attendanceRecords.filter((r) => (r.eventId === activeEvent.id || r.sessionId === activeEvent.id) && r.status === 'PRESENT')
+    : [];
+
+  let targetStudents = students;
+  if (activeEvent?.rosterType === 'CLASS_SET' && activeEvent.targetClasses && activeEvent.targetClasses.length > 0) {
+    targetStudents = students.filter((s) => activeEvent.targetClasses!.includes(s.className));
+  }
+
+  const attendancePercent =
+    targetStudents.length > 0
+      ? Math.round((currentEventRecords.length / targetStudents.length) * 100)
+      : 0;
+
+  // Recent 5 scans for active event
+  const recentEventScans = currentEventRecords.slice(0, 5);
+
+  const formatTime = (iso?: string) => {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    } catch {
+      return iso;
     }
-  }, [activeSession]);
-
-  // Only OPEN sessions are eligible for scanning
-  const openSessions = allSessions.filter((s) => s.status === 'OPEN');
-  const currentSession =
-    openSessions.find((s) => s.id === selectedSessionId) ||
-    (activeSession && activeSession.status === 'OPEN' ? activeSession : null) ||
-    openSessions[0] ||
-    null;
-
-  // Session attendance stats
-  const sessionRecords = currentSession
-    ? attendanceRecords.filter((r) => r.sessionId === currentSession.id && r.status === 'PRESENT')
-    : [];
-
-  const targetStudents = currentSession
-    ? currentSession.className
-      ? students.filter((s) => s.className === currentSession.className)
-      : students
-    : [];
-
-  const percentage =
-    targetStudents.length > 0 ? Math.round((sessionRecords.length / targetStudents.length) * 100) : 0;
+  };
 
   // Start Camera
   const startCamera = async () => {
     setCameraError(null);
     try {
-      if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode(qrRegionId);
-      }
+      const html5QrCode = new Html5Qrcode('qr-reader-container');
+      scannerRef.current = html5QrCode;
 
-      await html5QrCodeRef.current.start(
+      await html5QrCode.start(
         { facingMode: 'environment' },
         {
           fps: 10,
-          qrbox: { width: 260, height: 260 },
+          qrbox: { width: 240, height: 240 },
           aspectRatio: 1.0
         },
         (decodedText) => {
-          handleScannedData(decodedText, 'CAMERA_SCAN');
+          handleCameraDecoded(decodedText);
         },
         () => {
-          // Frame scan failure (benign, scanning in progress)
+          // ignore scan frame misses
         }
       );
 
       setIsCameraActive(true);
+      isScanningRef.current = true;
     } catch (err: any) {
-      console.warn('Camera start error:', err);
-      setCameraError('Gagal memulakan kamera. Sila pastikan kebenaran kamera telah diberikan pada pelayar anda.');
+      console.error('Camera initialization error:', err);
+      setCameraError(
+        'Kamera tidak dapat diakses. Sila pastikan kebenaran kamera (Camera Permission) dibenarkan pada pelayar.'
+      );
       setIsCameraActive(false);
+      isScanningRef.current = false;
     }
   };
 
   // Stop Camera
   const stopCamera = async () => {
-    if (html5QrCodeRef.current && isCameraActive) {
+    if (scannerRef.current && isScanningRef.current) {
       try {
-        await html5QrCodeRef.current.stop();
-        setIsCameraActive(false);
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
       } catch (err) {
-        console.warn('Camera stop error:', err);
+        console.warn('Error stopping scanner:', err);
       }
     }
+    scannerRef.current = null;
+    isScanningRef.current = false;
+    setIsCameraActive(false);
   };
 
+  // Auto-start camera if event is active
   useEffect(() => {
+    if (activeEvent) {
+      startCamera();
+    }
     return () => {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        html5QrCodeRef.current.stop().catch(console.warn);
-      }
+      stopCamera();
     };
-  }, []);
+  }, [activeEvent?.id]);
 
-  // Handle Scan Data with cooldown throttling
-  const handleScannedData = (dataString: string, method: AttendanceMethod = 'CAMERA_SCAN') => {
-    if (cooldown) return;
+  // Handle Camera Decode with debounce
+  const handleCameraDecoded = (decodedText: string) => {
+    const now = Date.now();
+    // Debounce 1.5 seconds for identical code
+    if (decodedText === lastScanCodeRef.current && now - lastScanTimeRef.current < 1500) {
+      return;
+    }
 
-    setCooldown(true);
-    setTimeout(() => setCooldown(false), 2200);
+    lastScanCodeRef.current = decodedText;
+    lastScanTimeRef.current = now;
 
-    const result = onProcessScan(dataString, method, currentSession?.id);
-    setScanResult(result);
+    const result = onProcessScan(decodedText, 'CAMERA_SCAN', activeEvent?.id);
+    setLastResult(result);
 
     if (result.success) {
-      if (soundEnabled) soundService.playSuccess();
+      soundService.playSuccess();
       try {
         confetti({
-          particleCount: 40,
-          spread: 60,
+          particleCount: 25,
+          spread: 45,
           origin: { y: 0.8 },
-          colors: ['#6366f1', '#10b981', '#38bdf8']
+          colors: ['#10B981', '#6366F1', '#3B82F6']
         });
-      } catch (e) {}
+      } catch {}
     } else if (result.isDuplicate) {
-      if (soundEnabled) soundService.playDuplicate();
+      soundService.playDuplicate();
     } else {
-      if (soundEnabled) soundService.playError();
+      soundService.playError();
     }
   };
 
-  // Manual code entry / student selection
+  // Handle Manual Student ID Submission
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualInput.trim()) return;
-    handleScannedData(manualInput.trim(), 'MANUAL');
-    setManualInput('');
+    if (!manualStudentId.trim() || !activeEvent) return;
+
+    const clean = manualStudentId.trim().toUpperCase();
+    const result = onProcessScan(`STUDENT|${clean}`, 'MANUAL', activeEvent.id);
+    setLastResult(result);
+
+    if (result.success) {
+      soundService.playSuccess();
+      setManualStudentId('');
+    } else if (result.isDuplicate) {
+      soundService.playDuplicate();
+    } else {
+      soundService.playError();
+    }
   };
 
-  // Filter students for manual fast check-in
-  const filteredQuickList = students
-    .filter((s) => {
-      const q = manualInput.toLowerCase();
-      if (!q) return false;
-      return (
-        s.name.toLowerCase().includes(q) ||
-        s.studentId.toLowerCase().includes(q) ||
-        s.className.toLowerCase().includes(q)
-      );
-    })
-    .slice(0, 5);
+  // Handle Close Event Confirmation
+  const handleConfirmClose = () => {
+    if (!activeEvent) return;
+    onCloseEvent(activeEvent.id);
+    setIsConfirmCloseModalOpen(false);
+    stopCamera();
+  };
 
-  if (!currentSession || currentSession.status !== 'OPEN') {
+  // If no event is active, show clean operational state
+  if (!activeEvent) {
     return (
-      <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-8 sm:p-12 text-center max-w-lg mx-auto space-y-5 my-8 shadow-xl">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
-          <AlertTriangle className="w-8 h-8" />
+      <div className="max-w-2xl mx-auto py-12 px-4 text-center space-y-5">
+        <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 text-slate-500 flex items-center justify-center mx-auto shadow-inner">
+          <CalendarCheck className="w-8 h-8" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-xl font-bold text-white tracking-tight">Tiada Sesi Kehadiran Dibuka</h2>
-          <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Imbasan kod QR kehadiran hanya boleh dilakukan selepas sesuatu sesi dibuka (Status: DIBUKA). Sila buka sesi di menu Aktiviti & Sesi terlebih dahulu.
+          <h2 className="text-xl font-bold text-white tracking-tight">
+            Tiada Acara Aktif Untuk Imbasan
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+            Untuk memulakan pengesahan kehadiran, sila pilih dan aktifkan acara daripada senarai Acara terlebih dahulu.
           </p>
         </div>
         <div>
           <button
-            id="scanner-btn-goto-activities"
-            onClick={onGoToActivities}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-lg shadow-indigo-600/30 active:scale-95"
+            id="kehadiran-btn-go-events"
+            type="button"
+            onClick={onGoToEvents}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
           >
             <CalendarCheck className="w-4 h-4" />
-            <span>Buka Sesi di Aktiviti & Sesi</span>
+            <span>Buka Senarai Acara</span>
           </button>
         </div>
       </div>
@@ -225,318 +239,221 @@ export const ScannerView: React.FC<ScannerViewProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Session Context Bar & Target Selector */}
-      <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
-              PENGIMBAS KEHADIRAN QR
-            </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${getCategoryBadgeColor(currentSession.category)}`}>
-              {getCategoryLabel(currentSession.category)}
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold animate-pulse">
-              🟢 SEDANG DIBUKA (AKTIF)
-            </span>
-          </div>
-          <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-            {currentSession.sessionName}
-          </h2>
-          <p className="text-xs text-slate-400">
-            {currentSession.location} • {currentSession.organizer}
-          </p>
-        </div>
-
-        {/* Sesi Picker Dropdown - Only open sessions */}
-        <div className="flex items-center gap-2">
-          {openSessions.length > 1 ? (
-            <select
-              id="scanner-session-select"
-              value={selectedSessionId}
-              onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 focus:outline-none focus:border-indigo-500 max-w-xs cursor-pointer"
-            >
-              {openSessions.map((ses) => (
-                <option key={ses.id} value={ses.id}>
-                  🟢 [BUKA] {ses.sessionName}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-semibold text-emerald-300 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              <span>Sesi Aktif</span>
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* 1. ACTIVE EVENT OPERATIONAL HEADER */}
+      <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 p-4 sm:p-5 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Kehadiran Aktif
+              </span>
+              {activeEvent.activatedAt && (
+                <>
+                  <span className="text-slate-500">·</span>
+                  <span className="text-xs text-slate-400">
+                    Bermula: {formatTime(activeEvent.activatedAt)}
+                  </span>
+                </>
+              )}
             </div>
-          )}
 
-          <button
-            onClick={() => onToggleSound(!soundEnabled)}
-            className={`p-2 rounded-xl border text-xs cursor-pointer ${
-              soundEnabled ? 'bg-slate-800 border-slate-700 text-indigo-400' : 'bg-slate-950 border-slate-800 text-slate-500'
-            }`}
-            title="Bunyi Maklum Balas"
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-          </button>
+            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+              {activeEvent.title}
+            </h2>
+
+            <div className="text-xs text-slate-400 flex items-center gap-3">
+              {activeEvent.location && <span>📍 {activeEvent.location}</span>}
+              {activeEvent.organizer && <span>🏢 {activeEvent.organizer}</span>}
+            </div>
+          </div>
+
+          {/* Attendee Count & Close Attendance Action */}
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="text-right">
+              <div className="text-2xl font-extrabold text-white tracking-tight">
+                {currentEventRecords.length}
+                <span className="text-xs font-normal text-slate-400"> / {targetStudents.length}</span>
+              </div>
+              <div className="text-[11px] text-slate-400">
+                {attendancePercent}% Hadir
+              </div>
+            </div>
+
+            <button
+              id="kehadiran-btn-tamatkan"
+              type="button"
+              onClick={() => setIsConfirmCloseModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/40 hover:text-rose-300 text-slate-200 border border-slate-700 hover:border-rose-500/30 text-xs font-bold transition-all cursor-pointer shadow-sm"
+              title="Tamatkan sesi kehadiran ini"
+            >
+              Tamatkan Kehadiran
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* 2. CAMERA QR SCANNER & LIVE SCAN RESULT */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN: CAMERA & SCANNER (7 cols) */}
+        {/* Scanner Viewport (Dominant Column) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4 shadow-xl overflow-hidden relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs text-slate-300">
+              <span className="font-semibold flex items-center gap-1.5 text-white">
                 <Camera className="w-4 h-4 text-indigo-400" />
-                <h3 className="text-sm font-bold text-white">Kamera Pengimbas QR</h3>
-              </div>
-              <div>
-                {!isCameraActive ? (
-                  <button
-                    id="scanner-btn-start-camera"
-                    onClick={startCamera}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>Aktifkan Kamera</span>
-                  </button>
-                ) : (
-                  <button
-                    id="scanner-btn-stop-camera"
-                    onClick={stopCamera}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700 text-xs font-semibold transition-all cursor-pointer"
-                  >
-                    <CameraOff className="w-3.5 h-3.5" />
-                    <span>Hentikan Kamera</span>
-                  </button>
-                )}
-              </div>
+                <span>Pengimbas Kod QR Kamera</span>
+              </span>
+
+              <button
+                type="button"
+                onClick={isCameraActive ? stopCamera : startCamera}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  isCameraActive
+                    ? 'bg-rose-950/40 text-rose-300 border border-rose-500/30'
+                    : 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/30'
+                }`}
+              >
+                {isCameraActive ? 'Tutup Kamera' : 'Buka Kamera'}
+              </button>
             </div>
 
-            {/* Video Viewport Container */}
-            <div className="relative rounded-xl overflow-hidden bg-slate-950 border border-slate-800 min-h-[300px] flex items-center justify-center">
-              <div id={qrRegionId} className="w-full max-w-sm"></div>
+            {/* Video Container */}
+            <div className="mt-3 relative rounded-xl overflow-hidden bg-black aspect-square flex items-center justify-center border border-slate-800/80">
+              <div id="qr-reader-container" className="w-full h-full" />
 
               {!isCameraActive && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-950/90">
-                  <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center mb-3 text-indigo-400">
-                    <Camera className="w-8 h-8" />
-                  </div>
-                  <h4 className="text-sm font-bold text-white mb-1">Kamera Belum Diaktifkan</h4>
-                  <p className="text-xs text-slate-400 max-w-xs mb-4">
-                    Halakan kamera peranti ke Kod QR Pelajar (contoh format: <code className="text-indigo-300">STUDENT|PDA-2502-005</code>) untuk merekod kehadiran secara automatik.
+                <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-4 text-center space-y-3">
+                  <CameraOff className="w-10 h-10 text-slate-600" />
+                  <p className="text-xs text-slate-400 max-w-xs">
+                    Kamera dimatikan. Klik &quot;Buka Kamera&quot; di atas untuk memulakan imbasan.
                   </p>
                   <button
+                    type="button"
                     onClick={startCamera}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/30 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md cursor-pointer"
                   >
-                    Buka Kamera Sekarang
+                    Buka Kamera
                   </button>
-                </div>
-              )}
-
-              {cooldown && (
-                <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-indigo-500/90 text-white text-[10px] font-bold animate-pulse shadow-lg">
-                  Memproses...
                 </div>
               )}
             </div>
 
             {cameraError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
+              <div className="mt-3 p-3 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
                 <span>{cameraError}</span>
               </div>
             )}
-
-            {/* Manual ID Search & Fast Verification */}
-            <div className="pt-2 border-t border-slate-800">
-              <form onSubmit={handleManualSubmit} className="space-y-2">
-                <label className="text-xs font-semibold text-slate-400 flex items-center justify-between">
-                  <span>Carian No. Pelajar / Imbasan Manual:</span>
-                  <span className="text-[10px] text-slate-500 font-normal">Contoh: PDA-2502-005 atau Aiman</span>
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input
-                      id="scanner-manual-input"
-                      type="text"
-                      placeholder="Masukkan No. Pelajar atau Nama..."
-                      value={manualInput}
-                      onChange={(e) => setManualInput(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-semibold text-xs border border-slate-700 transition-all cursor-pointer"
-                  >
-                    Sahkan
-                  </button>
-                </div>
-              </form>
-
-              {/* Quick Auto-complete results */}
-              {filteredQuickList.length > 0 && (
-                <div className="mt-2 p-2 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                  {filteredQuickList.map((st) => (
-                    <button
-                      key={st.id}
-                      onClick={() => {
-                        handleScannedData(st.id, 'MANUAL_OVERRIDE');
-                        setManualInput('');
-                      }}
-                      className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-slate-900 text-left transition-all cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold ${getStudentColor(st.id)}`}>
-                          {st.name && st.name.trim().toUpperCase() === st.className.trim().toUpperCase()
-                            ? getInitials(st.studentId)
-                            : getInitials(st.name)}
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold text-white">{getStudentDisplayName(st)}</div>
-                          <div className="text-[10px] text-slate-400">{st.studentId} • {st.className}</div>
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-indigo-400">Rekod &rarr;</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* LATEST SCAN RESULT CARD */}
-          {scanResult && (
+          {/* Secondary Manual Search Fallback (Discreet below camera) */}
+          <div className="rounded-xl bg-slate-900/60 border border-slate-800/80 p-3.5">
+            <span className="text-xs text-slate-400 font-medium block mb-2">
+              Atau cari No. Pelajar secara manual (Sandaran):
+            </span>
+            <form onSubmit={handleManualSubmit} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Contoh: PDA-2502-005"
+                value={manualStudentId}
+                onChange={(e) => setManualStudentId(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-all cursor-pointer"
+              >
+                Sahkan
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Live Feedback & Recent Scans (Right Column) */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* IMMEDIATE SCAN FEEDBACK BANNER */}
+          {lastResult && (
             <div
-              id="scanner-latest-result-card"
-              className={`rounded-2xl border p-5 transition-all shadow-xl ${
-                scanResult.success
-                  ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-100'
-                  : scanResult.isDuplicate
-                  ? 'bg-amber-950/40 border-amber-500/40 text-amber-100'
-                  : 'bg-rose-950/40 border-rose-500/40 text-rose-100'
+              className={`p-4 rounded-2xl border transition-all shadow-lg ${
+                lastResult.success
+                  ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
+                  : lastResult.isDuplicate
+                  ? 'bg-amber-950/60 border-amber-500/40 text-amber-200'
+                  : 'bg-rose-950/60 border-rose-500/40 text-rose-200'
               }`}
             >
-              <div className="flex items-start gap-4">
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-xl font-bold shadow-lg ${
-                    scanResult.success
-                      ? 'bg-emerald-500 text-slate-950'
-                      : scanResult.isDuplicate
-                      ? 'bg-amber-500 text-slate-950'
-                      : 'bg-rose-500 text-slate-950'
-                  }`}
-                >
-                  {scanResult.success ? (
-                    <CheckCircle2 className="w-7 h-7 text-slate-950" />
-                  ) : scanResult.isDuplicate ? (
-                    <AlertTriangle className="w-7 h-7 text-slate-950" />
-                  ) : (
-                    <XCircle className="w-7 h-7 text-slate-950" />
-                  )}
-                </div>
+              <div className="flex items-start gap-3">
+                {lastResult.success ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                ) : lastResult.isDuplicate ? (
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                )}
 
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                        scanResult.success
-                          ? 'bg-emerald-500/20 text-emerald-300'
-                          : scanResult.isDuplicate
-                          ? 'bg-amber-500/20 text-amber-300'
-                          : 'bg-rose-500/20 text-rose-300'
-                      }`}
-                    >
-                      {scanResult.code}
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      {new Date(scanResult.timestamp).toLocaleTimeString('ms-MY')}
-                    </span>
+                <div className="space-y-1">
+                  <div className="text-xs font-bold uppercase tracking-wider">
+                    {lastResult.success
+                      ? '✓ Kehadiran Direkodkan'
+                      : lastResult.isDuplicate
+                      ? '! Sudah Direkodkan'
+                      : lastResult.code === 'NOT_ELIGIBLE'
+                      ? '! Bukan Peserta Acara'
+                      : '! Imbasan Ditolak'}
                   </div>
 
-                  <h4 className="text-base font-bold text-white">
-                    {scanResult.student ? getStudentDisplayName(scanResult.student) : 'Maklumat Imbasan'}
-                  </h4>
-
-                  {scanResult.student && (
-                    <div className="text-xs text-slate-300 flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span>No. Pelajar: <strong className="text-white">{scanResult.student.studentId}</strong></span>
-                      <span>Set: <strong className="text-white">{scanResult.student.className}</strong></span>
-                      <span>Program: <strong>{scanResult.student.department || 'Diploma Perakaunan'}</strong></span>
+                  {lastResult.student ? (
+                    <div>
+                      <div className="text-sm font-bold text-white">
+                        {lastResult.student.name}
+                      </div>
+                      <div className="text-xs opacity-80">
+                        {lastResult.student.id} · Set {lastResult.student.className}
+                      </div>
                     </div>
+                  ) : (
+                    <div className="text-xs">{lastResult.message}</div>
                   )}
 
-                  <p className="text-xs text-slate-300 pt-1 font-medium">
-                    {scanResult.message}
-                  </p>
+                  <div className="text-[10px] opacity-70 pt-1">
+                    Waktu: {formatTime(lastResult.timestamp)}
+                  </div>
                 </div>
               </div>
             </div>
           )}
-        </div>
 
-        {/* RIGHT COLUMN: LIVE SESSION ATTENDANCE STREAM (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4 flex flex-col h-full">
-            {/* Header with Stats */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-white">Kehadiran Sesi Ini</h3>
-                <p className="text-xs text-slate-400">
-                  {sessionRecords.length} daripada {targetStudents.length} Pelajar Hadir
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="text-xl font-extrabold text-emerald-400">{percentage}%</div>
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Kadar Kehadiran</div>
-              </div>
+          {/* STREAM OF RECENT ATTENDEES */}
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+              <span className="font-semibold text-white">Kehadiran Terkini</span>
+              <span className="text-slate-400">{currentEventRecords.length} pelajar</span>
             </div>
 
-            {/* Progress bar */}
-            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-300"
-                style={{ width: `${percentage}%` }}
-              ></div>
-            </div>
-
-            {/* List of checked in students for this session */}
-            <div className="flex-1 overflow-y-auto max-h-[480px] space-y-2 pr-1">
-              {sessionRecords.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 text-xs">
-                  Belum ada pelajar yang mengimbas kehadiran bagi sesi ini.
+            <div className="divide-y divide-slate-800/60">
+              {recentEventScans.length === 0 ? (
+                <div className="py-6 text-center text-xs text-slate-500">
+                  Belum ada imbasan kehadiran untuk acara ini.
                 </div>
               ) : (
-                sessionRecords.map((record) => {
-                  const student = students.find((s) => s.id === record.studentId);
+                recentEventScans.map((rec) => {
+                  const student = students.find((s) => s.id === rec.studentId);
                   return (
-                    <div
-                      key={record.id}
-                      className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between gap-3 hover:border-slate-700 transition-all"
-                    >
-                      <div className="flex items-center gap-2.5 truncate">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${student ? getStudentColor(student.id) : 'bg-slate-800'}`}>
-                          {student ? getInitials(student.name) : 'ST'}
+                    <div key={rec.id} className="py-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-bold text-white">
+                          {student?.name || rec.studentName || rec.studentId}
                         </div>
-                        <div className="truncate">
-                          <div className="text-xs font-semibold text-white truncate">
-                            {student ? student.name : record.studentId}
-                          </div>
-                          <div className="text-[10px] text-slate-400 truncate">
-                            {student?.studentId} • <span className="font-bold text-slate-300">{student?.className}</span>
-                          </div>
+                        <div className="text-[11px] text-slate-400">
+                          {rec.studentId} · Set {student?.className || rec.className}
                         </div>
                       </div>
-
-                      <div className="text-right shrink-0">
-                        <div className="text-[11px] font-bold text-emerald-400">
-                          {new Date(record.timestamp).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                        <span className="text-[9px] text-slate-500 uppercase">{record.method}</span>
+                      <div className="text-right text-[11px] text-slate-400 font-mono">
+                        {formatTime(rec.scannedAt || rec.timestamp)}
                       </div>
                     </div>
                   );
@@ -546,6 +463,46 @@ export const ScannerView: React.FC<ScannerViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* CONFIRMATION MODAL FOR TAMATKAN KEHADIRAN */}
+      {isConfirmCloseModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-white">Tamatkan Sesi Kehadiran?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Adakah anda pasti untuk menamatkan sesi kehadiran bagi &quot;{activeEvent.title}&quot;?
+                Selepas ditamatkan, rekod akan dikunci ke status COMPLETED dan imbasan baharu tidak akan diterima.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300">
+              Jumlah Kehadiran Semasa: <span className="font-bold text-white">{currentEventRecords.length} orang</span>
+            </div>
+
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsConfirmCloseModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700 transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClose}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all cursor-pointer"
+              >
+                Sahkan & Tamatkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

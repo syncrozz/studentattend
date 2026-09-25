@@ -44,7 +44,6 @@ interface StudentDirectoryViewProps {
   onDeleteStudent: (studentId: string) => void;
   onOpenCSVImport: () => void;
   onRequestAdminAccess: (actionName?: string) => void;
-  onQuickSimulateScan: (studentId: string) => ScanResult;
 }
 
 export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
@@ -56,8 +55,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
   onAddStudent,
   onDeleteStudent,
   onOpenCSVImport,
-  onRequestAdminAccess,
-  onQuickSimulateScan
+  onRequestAdminAccess
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSet, setSelectedSet] = useState<string>('ALL');
@@ -329,15 +327,6 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                       className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition-all cursor-pointer"
                     >
                       Sejarah
-                    </button>
-
-                    {/* Fast Simulator Check-in */}
-                    <button
-                      onClick={() => onQuickSimulateScan(student.id)}
-                      className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-[11px] font-semibold border border-indigo-500/30 transition-all cursor-pointer"
-                      title="Uji Imbas Pantas"
-                    >
-                      Imbas
                     </button>
                   </div>
                 </div>

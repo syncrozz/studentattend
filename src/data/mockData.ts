@@ -1,4 +1,4 @@
-import { Student, AttendanceActivity, AttendanceSession, AttendanceRecord } from '../types';
+import { Student, AttendanceActivity, AttendanceSession, AttendanceRecord, Event } from '../types';
 
 export const INITIAL_STUDENTS: Student[] = [
   // DIA_4B (24 students)
@@ -218,30 +218,90 @@ export const INITIAL_SESSIONS: AttendanceSession[] = [
   }
 ];
 
+// Unified Event Model Mock Data (SES 4.5 / Phase 1)
+export const INITIAL_EVENTS: Event[] = [
+  {
+    id: 'EVT-ASM-2026-08',
+    title: 'Majlis Perhimpunan Pelajar Bulanan (Ogos 2026)',
+    type: 'ASSEMBLY',
+    rosterType: 'ALL',
+    location: 'Dewan Besar Kolej',
+    organizer: 'Hal Ehwal Pelajar (HEP)',
+    description: 'Perhimpunan rasmi bulanan semua pelajar sesi akademik 2026/2027.',
+    status: 'ACTIVE',
+    activatedAt: '2026-08-14T08:00:00.000Z',
+    firstScanAt: '2026-08-14T08:05:42.000Z',
+    lastScanAt: '2026-08-14T08:14:19.000Z',
+    createdAt: '2026-08-14T00:00:00.000Z'
+  },
+  {
+    id: 'EVT-PRG-LEAD',
+    title: 'Program Kepimpinan & Sahsiah Unggul Pelajar',
+    type: 'PROGRAMME',
+    rosterType: 'ALL',
+    location: 'Auditorium Al-Khawarizmi',
+    organizer: 'Unit Kaunseling & Kerjaya HEP',
+    description: 'Seminar pembangunan sahsiah dan kepimpinan mahasiswa anjuran HEP.',
+    status: 'COMPLETED',
+    activatedAt: '2026-08-12T09:00:00.000Z',
+    firstScanAt: '2026-08-12T09:05:12.000Z',
+    lastScanAt: '2026-08-12T09:18:02.000Z',
+    closedAt: '2026-08-12T16:30:00.000Z',
+    createdAt: '2026-08-12T01:00:00.000Z'
+  },
+  {
+    id: 'EVT-WRK-DIGI',
+    title: 'Bengkel Kemahiran Digital & Analitik Data',
+    type: 'SEMINAR',
+    rosterType: 'CLASS_SET',
+    targetClasses: ['DIA_4A', 'DIA_4B'],
+    location: 'Makmal Komputer 2',
+    organizer: 'Kelab Teknologi & Siswa Perakaunan',
+    description: 'Latihan kemahiran aplikasi digital dan spreadsheets untuk perakaunan moden.',
+    status: 'COMPLETED',
+    activatedAt: '2026-08-10T14:00:00.000Z',
+    firstScanAt: '2026-08-10T14:05:00.000Z',
+    lastScanAt: '2026-08-10T14:40:00.000Z',
+    closedAt: '2026-08-10T17:00:00.000Z',
+    createdAt: '2026-08-10T06:00:00.000Z'
+  },
+  {
+    id: 'EVT-BRIEF-DISC',
+    title: 'Taklimat Disiplin & Peraturan Kolej',
+    type: 'BRIEFING',
+    rosterType: 'ALL',
+    location: 'Dewan Besar Kolej',
+    organizer: 'Lembaga Disiplin Kolej',
+    description: 'Taklimat pematuhan etika dan kod pakaian pelajar sesi 2026.',
+    status: 'DRAFT',
+    createdAt: '2026-08-15T08:00:00.000Z'
+  }
+];
+
 // Seed some initial attendance records for the past sessions
 export const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
-  // Attendance for Leadership Program (SES-PRG-LEAD)
-  { id: 'REC-PRG-01', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-005', timestamp: '2026-08-12T09:05:12.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-PRG-02', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-018', timestamp: '2026-08-12T09:08:24.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-PRG-03', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-060', timestamp: '2026-08-12T09:12:45.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-PRG-04', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-004', timestamp: '2026-08-12T09:14:10.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-PRG-05', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-036', timestamp: '2026-08-12T09:15:30.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-PRG-06', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-048', timestamp: '2026-08-12T09:18:02.000Z', status: 'PRESENT', method: 'QR' },
+  // Attendance for Leadership Program (EVT-PRG-LEAD / SES-PRG-LEAD)
+  { id: 'REC-PRG-01', eventId: 'EVT-PRG-LEAD', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-005', studentName: 'MUHAMMAD AIMAN BIN MUHAMMAD ARIFF', className: 'DIA_4B', scannedAt: '2026-08-12T09:05:12.000Z', timestamp: '2026-08-12T09:05:12.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-PRG-02', eventId: 'EVT-PRG-LEAD', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-018', studentName: 'FATIN ZAFIRA BINTI MOHD FADHLI', className: 'DIA_4B', scannedAt: '2026-08-12T09:08:24.000Z', timestamp: '2026-08-12T09:08:24.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-PRG-03', eventId: 'EVT-PRG-LEAD', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-060', studentName: 'NUR ARTIKAH SYAZWANI BINTI MOHAMAD TERMIZI', className: 'DIA_4B', scannedAt: '2026-08-12T09:12:45.000Z', timestamp: '2026-08-12T09:12:45.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-PRG-04', eventId: 'EVT-PRG-LEAD', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-004', studentName: 'NURUL IZZAH BINTI KAMAL', className: 'DIA_4A', scannedAt: '2026-08-12T09:14:10.000Z', timestamp: '2026-08-12T09:14:10.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-PRG-05', eventId: 'EVT-PRG-LEAD', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-036', studentName: 'ADAM DANISH BIN HISHAM', className: 'DIA_4C', scannedAt: '2026-08-12T09:15:30.000Z', timestamp: '2026-08-12T09:15:30.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-PRG-06', eventId: 'EVT-PRG-LEAD', sessionId: 'SES-PRG-LEAD', studentId: 'PDA-2502-048', studentName: 'SITI SARAH BINTI AZMAN', className: 'DIA_4A', scannedAt: '2026-08-12T09:18:02.000Z', timestamp: '2026-08-12T09:18:02.000Z', status: 'PRESENT', method: 'QR' },
 
   // Attendance for Class Week 1 (SES-CLS-WK1)
-  { id: 'REC-CLS-01', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-005', timestamp: '2026-08-14T08:32:10.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-CLS-02', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-018', timestamp: '2026-08-14T08:34:22.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-CLS-03', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-060', timestamp: '2026-08-14T08:35:40.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-CLS-04', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-064', timestamp: '2026-08-14T08:36:12.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-CLS-05', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-100', timestamp: '2026-08-14T08:37:55.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-CLS-06', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-049', timestamp: '2026-08-14T08:39:10.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-CLS-01', eventId: 'SES-CLS-WK1', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-005', studentName: 'MUHAMMAD AIMAN BIN MUHAMMAD ARIFF', className: 'DIA_4B', scannedAt: '2026-08-14T08:32:10.000Z', timestamp: '2026-08-14T08:32:10.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-CLS-02', eventId: 'SES-CLS-WK1', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-018', studentName: 'FATIN ZAFIRA BINTI MOHD FADHLI', className: 'DIA_4B', scannedAt: '2026-08-14T08:34:22.000Z', timestamp: '2026-08-14T08:34:22.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-CLS-03', eventId: 'SES-CLS-WK1', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-060', studentName: 'NUR ARTIKAH SYAZWANI BINTI MOHAMAD TERMIZI', className: 'DIA_4B', scannedAt: '2026-08-14T08:35:40.000Z', timestamp: '2026-08-14T08:35:40.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-CLS-04', eventId: 'SES-CLS-WK1', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-064', studentName: 'NUR HAYANI SYAHINDA BINTI MOHD FAIROZ', className: 'DIA_4B', scannedAt: '2026-08-14T08:36:12.000Z', timestamp: '2026-08-14T08:36:12.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-CLS-05', eventId: 'SES-CLS-WK1', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-100', studentName: 'AMEERA HAIFA BINTI MOHD HAFIZAL', className: 'DIA_4B', scannedAt: '2026-08-14T08:37:55.000Z', timestamp: '2026-08-14T08:37:55.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-CLS-06', eventId: 'SES-CLS-WK1', sessionId: 'SES-CLS-WK1', studentId: 'PDA-2502-049', studentName: 'NUR ADLINA BINTI ABDUL RAHMAN', className: 'DIA_4B', scannedAt: '2026-08-14T08:39:10.000Z', timestamp: '2026-08-14T08:39:10.000Z', status: 'PRESENT', method: 'QR' },
 
-  // Attendance already in progress for August Assembly (SES-ASM-2026-08)
-  { id: 'REC-ASM-01', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-005', timestamp: '2026-08-14T08:05:42.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-ASM-02', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-018', timestamp: '2026-08-14T08:08:15.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-ASM-03', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-036', timestamp: '2026-08-14T08:10:04.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-ASM-04', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-004', timestamp: '2026-08-14T08:12:30.000Z', status: 'PRESENT', method: 'QR' },
-  { id: 'REC-ASM-05', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-048', timestamp: '2026-08-14T08:14:19.000Z', status: 'PRESENT', method: 'QR' },
+  // Attendance in progress for August Assembly (EVT-ASM-2026-08 / SES-ASM-2026-08)
+  { id: 'REC-ASM-01', eventId: 'EVT-ASM-2026-08', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-005', studentName: 'MUHAMMAD AIMAN BIN MUHAMMAD ARIFF', className: 'DIA_4B', scannedAt: '2026-08-14T08:05:42.000Z', timestamp: '2026-08-14T08:05:42.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-ASM-02', eventId: 'EVT-ASM-2026-08', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-018', studentName: 'FATIN ZAFIRA BINTI MOHD FADHLI', className: 'DIA_4B', scannedAt: '2026-08-14T08:08:15.000Z', timestamp: '2026-08-14T08:08:15.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-ASM-03', eventId: 'EVT-ASM-2026-08', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-036', studentName: 'ADAM DANISH BIN HISHAM', className: 'DIA_4C', scannedAt: '2026-08-14T08:10:04.000Z', timestamp: '2026-08-14T08:10:04.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-ASM-04', eventId: 'EVT-ASM-2026-08', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-004', studentName: 'NURUL IZZAH BINTI KAMAL', className: 'DIA_4A', scannedAt: '2026-08-14T08:12:30.000Z', timestamp: '2026-08-14T08:12:30.000Z', status: 'PRESENT', method: 'QR' },
+  { id: 'REC-ASM-05', eventId: 'EVT-ASM-2026-08', sessionId: 'SES-ASM-2026-08', studentId: 'PDA-2502-048', studentName: 'SITI SARAH BINTI AZMAN', className: 'DIA_4A', scannedAt: '2026-08-14T08:14:19.000Z', timestamp: '2026-08-14T08:14:19.000Z', status: 'PRESENT', method: 'QR' },
 ];
 
 // Alias for backward compatibility

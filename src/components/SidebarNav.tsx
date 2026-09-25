@@ -1,90 +1,65 @@
 import React from 'react';
-import { ActiveTab, UserRole, OFFICIAL_STUDENT_ATTEND_ICON } from '../types';
+import { ActiveTab, OFFICIAL_STUDENT_ATTEND_ICON } from '../types';
 import {
   LayoutDashboard,
   QrCode,
   CalendarCheck,
   Users,
-  FileSpreadsheet,
-  BookOpen,
-  UserSquare2,
-  GraduationCap,
-  Smartphone
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface SidebarNavProps {
   activeTab: ActiveTab;
   onTabChange: (tab: ActiveTab) => void;
-  activeSessionName?: string;
-  totalRecordsCount: number;
+  hasActiveEvent?: boolean;
+  activeEventTitle?: string;
   totalStudentsCount?: number;
+  totalRecordsCount?: number;
   onOpenPWAInstall?: () => void;
 }
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({
   activeTab,
   onTabChange,
-  activeSessionName,
-  totalRecordsCount,
+  hasActiveEvent,
+  activeEventTitle,
   totalStudentsCount,
   onOpenPWAInstall
 }) => {
+  // 5 Approved Operational Navigation Areas (MYAU Standard)
   const navItems = [
     {
       id: 'dashboard' as ActiveTab,
-      label: 'Pusat Operasi',
+      label: 'Dashboard',
       icon: LayoutDashboard,
       badge: undefined
     },
-    // Only display scan button/tab when a session is OPEN!
-    ...(activeSessionName
-      ? [
-          {
-            id: 'scanner' as ActiveTab,
-            label: 'Imbasan QR',
-            icon: QrCode,
-            badge: 'LIVE',
-            badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 animate-pulse'
-          }
-        ]
-      : []),
     {
-      id: 'activities' as ActiveTab,
-      label: 'Aktiviti & Sesi',
+      id: 'attendance' as ActiveTab,
+      aliasIds: ['attendance', 'scanner'] as ActiveTab[],
+      label: 'Kehadiran',
+      icon: QrCode,
+      badge: hasActiveEvent ? 'AKTIF' : undefined,
+      badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-semibold'
+    },
+    {
+      id: 'events' as ActiveTab,
+      aliasIds: ['events', 'activities'] as ActiveTab[],
+      label: 'Acara',
       icon: CalendarCheck,
       badge: undefined
     },
     {
       id: 'students' as ActiveTab,
-      label: 'Direktori Pelajar',
+      label: 'Pelajar',
       icon: Users,
-      badge: totalStudentsCount !== undefined && totalStudentsCount > 0 ? `${totalStudentsCount}` : undefined,
-      badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30 font-bold'
-    },
-    {
-      id: 'qr' as ActiveTab,
-      label: 'Cari QR Pelajar',
-      icon: QrCode,
-      badge: '/qr',
-      badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-    },
-    {
-      id: 'my-attendance' as ActiveTab,
-      label: 'Kehadiran Saya',
-      icon: UserSquare2,
-      badge: 'Pelajar',
-      badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+      badge: totalStudentsCount && totalStudentsCount > 0 ? `${totalStudentsCount}` : undefined,
+      badgeColor: 'bg-slate-800 text-slate-400 border-slate-700'
     },
     {
       id: 'reports' as ActiveTab,
-      label: 'Laporan & Analitik',
+      label: 'Laporan',
       icon: FileSpreadsheet,
-      badge: totalRecordsCount > 0 ? `${totalRecordsCount}` : undefined
-    },
-    {
-      id: 'guide' as ActiveTab,
-      label: 'Panduan Senibina',
-      icon: BookOpen,
       badge: undefined
     }
   ];
@@ -93,12 +68,15 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
     <aside className="w-full md:w-64 bg-slate-900/60 md:min-h-[calc(100vh-4rem)] border-b md:border-b-0 md:border-r border-slate-800/80 p-3 sm:p-4 flex flex-col justify-between shrink-0">
       <div className="space-y-1">
         <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-          Menu Navigasi
+          Menu Utama
         </div>
         <nav className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const isActive =
+              activeTab === item.id ||
+              (item.aliasIds && item.aliasIds.includes(activeTab));
+
             return (
               <button
                 key={item.id}
@@ -117,8 +95,10 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 </div>
                 {item.badge && (
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold border ${
-                      isActive ? 'bg-white/20 text-white border-white/30' : item.badgeColor || 'bg-slate-800 text-slate-400 border-slate-700'
+                    className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                      isActive
+                        ? 'bg-white/20 text-white border-white/30'
+                        : item.badgeColor || 'bg-slate-800 text-slate-400 border-slate-700'
                     }`}
                   >
                     {item.badge}
@@ -130,36 +110,31 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
         </nav>
       </div>
 
-      {/* PWA Install Button & Info Card in Sidebar Footer */}
+      {/* Sidebar Footer */}
       <div className="space-y-2 mt-6">
         {onOpenPWAInstall && (
           <button
             id="sidebar-btn-pwa-install"
             onClick={onOpenPWAInstall}
-            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/30 text-indigo-200 text-xs font-semibold transition-all cursor-pointer group"
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-slate-300 text-xs font-medium transition-all cursor-pointer group"
           >
             <div className="flex items-center gap-2.5">
               <img
                 src={OFFICIAL_STUDENT_ATTEND_ICON}
                 alt="StudentAttend"
-                className="w-5 h-5 rounded-md object-contain group-hover:scale-110 transition-transform ring-1 ring-white/10 shrink-0"
+                className="w-5 h-5 rounded-md object-contain group-hover:scale-105 transition-transform shrink-0"
                 referrerPolicy="no-referrer"
               />
-              <span>Pasang Application</span>
+              <span>Pasang Aplikasi</span>
             </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300 font-bold">
-              Install
-            </span>
+            <span className="text-[10px] text-slate-400 font-medium">PWA</span>
           </button>
         )}
 
-        <div className="hidden md:block p-3.5 rounded-xl bg-slate-800/40 border border-slate-800 text-xs text-slate-400">
-          <div className="flex items-center gap-2 mb-1 text-slate-300 font-semibold">
-            <GraduationCap className="w-4 h-4 text-indigo-400" />
-            <span>Universal Platform</span>
-          </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            1 Pelajar &rarr; Pelbagai Aktiviti &rarr; Rekod Kehadiran Berpusat.
+        <div className="hidden md:block p-3 rounded-xl bg-slate-950/40 border border-slate-800/60 text-xs text-slate-400">
+          <div className="text-[11px] font-medium text-slate-300">StudentAttend</div>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            Sistem Kehadiran Acara & Aktiviti Rasmi Pelajar
           </p>
         </div>
       </div>

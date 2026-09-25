@@ -760,7 +760,7 @@ export const StudentQRPortalView: React.FC<StudentQRPortalViewProps> = ({
               <div className="p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 text-indigo-300 text-xs flex items-start gap-2.5">
                 <Sparkles className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
-                  <strong>Arahan untuk Pelajar:</strong> Klik <strong>&quot;Mod Screenshot&quot;</strong> atau <strong>&quot;Muat Turun Pas&quot;</strong>. Simpan imej dalam galeri telefon anda supaya boleh ditunjukkan dan diimbas oleh AJK bertugas di pintu masuk dewan/kuliah walaupun tiada internet.
+                  <strong>Arahan untuk Pelajar:</strong> Klik <strong>&quot;Mod Screenshot&quot;</strong> atau <strong>&quot;Muat Turun Pas&quot;</strong>. Simpan imej dalam galeri telefon anda supaya boleh ditunjukkan dan diimbas oleh AJK bertugas di pintu masuk dewan/acara perhimpunan walaupun tiada internet.
                 </p>
               </div>
             </div>
