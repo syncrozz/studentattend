@@ -55,6 +55,13 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
     },
     {
+      id: 'qr' as ActiveTab,
+      label: 'Cari QR Pelajar',
+      icon: QrCode,
+      badge: '/qr',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+    },
+    {
       id: 'my-attendance' as ActiveTab,
       label: 'Kehadiran Saya',
       icon: UserSquare2,

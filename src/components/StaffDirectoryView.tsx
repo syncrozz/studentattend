@@ -12,7 +12,8 @@ import {
   getInitials,
   getStudentColor,
   getCategoryBadgeColor,
-  getCategoryLabel
+  getCategoryLabel,
+  getStudentDisplayName
 } from '../utils/studentUtils';
 import { exportStudentsToCSV, downloadCSV } from '../utils/csvHelper';
 import {
@@ -249,6 +250,12 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStudents.map((student) => {
             const stats = getStudentStats(student.id, student.className);
+            const isNameSameAsClass = !student.name || (Boolean(student.className) && student.name.trim().toUpperCase() === student.className.trim().toUpperCase());
+            const displayName = getStudentDisplayName(student);
+            const displayInitials = isNameSameAsClass ? getInitials(student.studentId) : getInitials(student.name);
+            const hasEmail = Boolean(student.email && student.email.trim().length > 0);
+            const hasPhone = Boolean(student.phone && student.phone.trim().length > 0);
+            const hasContactInfo = hasEmail || hasPhone;
 
             return (
               <div
@@ -258,19 +265,21 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 truncate">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 shadow-inner ${getStudentColor(student.id)}`}>
-                      {getInitials(student.name)}
+                      {displayInitials}
                     </div>
                     <div className="truncate">
                       <div className="flex items-center gap-1.5">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getClassBadgeColor(student.className)}`}>
                           {student.className}
                         </span>
-                        <span className="text-xs font-mono font-bold text-slate-300">
-                          {student.studentId}
-                        </span>
+                        {!isNameSameAsClass && (
+                          <span className="text-xs font-mono font-bold text-slate-300">
+                            {student.studentId}
+                          </span>
+                        )}
                       </div>
-                      <h4 className="text-sm font-bold text-white truncate mt-0.5" title={student.name}>
-                        {student.name}
+                      <h4 className="text-sm font-bold text-white truncate mt-0.5" title={displayName}>
+                        {displayName}
                       </h4>
                     </div>
                   </div>
@@ -286,17 +295,23 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                   </button>
                 </div>
 
-                {/* Contact details */}
-                <div className="text-[11px] text-slate-400 space-y-1 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
-                  <div className="flex items-center gap-2 truncate">
-                    <Mail className="w-3 h-3 text-slate-500 shrink-0" />
-                    <span className="truncate">{student.email}</span>
+                {/* Contact details - Sembunyi elemen / ikon jika tiada maklumat e-mel dan no. telefon */}
+                {hasContactInfo && (
+                  <div className="text-[11px] text-slate-400 space-y-1 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                    {hasEmail && (
+                      <div className="flex items-center gap-2 truncate">
+                        <Mail className="w-3 h-3 text-slate-500 shrink-0" />
+                        <span className="truncate">{student.email}</span>
+                      </div>
+                    )}
+                    {hasPhone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3 h-3 text-slate-500 shrink-0" />
+                        <span>{student.phone}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3 h-3 text-slate-500 shrink-0" />
-                    <span>{student.phone}</span>
-                  </div>
-                </div>
+                )}
 
                 {/* Attendance Summary Bar & Action Buttons */}
                 <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
@@ -376,7 +391,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
               <div className="space-y-1">
                 <h4 className="text-sm font-extrabold text-white">
-                  {selectedStudentForQR.name}
+                  {getStudentDisplayName(selectedStudentForQR)}
                 </h4>
                 <div className="text-xs font-mono font-bold text-indigo-400 student-id-text">
                   {selectedStudentForQR.studentId}
@@ -410,7 +425,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
               <div>
                 <h3 className="text-base font-bold text-white">Sejarah Kehadiran Pelajar</h3>
                 <p className="text-xs text-slate-400">
-                  {selectedStudentForHistory.name} ({selectedStudentForHistory.studentId}) • {selectedStudentForHistory.className}
+                  {getStudentDisplayName(selectedStudentForHistory)} ({selectedStudentForHistory.studentId}) • {selectedStudentForHistory.className}
                 </p>
               </div>
               <button
@@ -620,7 +635,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                       {/* Student Info */}
                       <div className="text-center pt-2 border-t border-slate-100 space-y-0.5">
                         <div className="text-xs font-black text-slate-900 leading-tight truncate">
-                          {st.name}
+                          {getStudentDisplayName(st)}
                         </div>
                         <div className="text-[11px] font-mono font-bold text-indigo-700">
                           {st.studentId}
@@ -644,7 +659,7 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                       <div className="flex justify-center py-1">
                         <QRCodeSVG value={`STUDENT|${st.studentId}`} size={80} level="M" />
                       </div>
-                      <div className="text-[10px] font-extrabold truncate text-slate-900">{st.name}</div>
+                      <div className="text-[10px] font-extrabold truncate text-slate-900">{getStudentDisplayName(st)}</div>
                       <div className="text-[9px] font-mono font-bold text-slate-600">{st.studentId}</div>
                     </div>
                   ))}
@@ -672,8 +687,8 @@ export const StaffDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
                       {/* Bottom Footer Info */}
                       <div className="pt-1 border-t border-slate-100 space-y-0.5 text-center">
-                        <div className="text-[9px] font-extrabold truncate text-slate-900 leading-tight" title={st.name}>
-                          {st.name}
+                        <div className="text-[9px] font-extrabold truncate text-slate-900 leading-tight" title={getStudentDisplayName(st)}>
+                          {getStudentDisplayName(st)}
                         </div>
                         <div className="text-[8px] font-mono font-bold text-indigo-900">
                           {st.studentId}

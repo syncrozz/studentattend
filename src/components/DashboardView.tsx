@@ -6,7 +6,7 @@ import {
   AttendanceRecord,
   ScanResult
 } from '../types';
-import { getCategoryBadgeColor, getCategoryLabel, getClassBadgeColor, getInitials, getStudentColor } from '../utils/studentUtils';
+import { getCategoryBadgeColor, getCategoryLabel, getClassBadgeColor, getInitials, getStudentColor, getStudentDisplayName } from '../utils/studentUtils';
 import {
   Users,
   QrCode,
@@ -372,10 +372,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   >
                     <div className="flex items-center gap-2 truncate">
                       <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${getStudentColor(st.id)}`}>
-                        {getInitials(st.name)}
+                        {st.name && st.name.trim().toUpperCase() === st.className.trim().toUpperCase()
+                          ? getInitials(st.studentId)
+                          : getInitials(st.name)}
                       </div>
                       <div className="truncate">
-                        <div className="text-xs font-semibold truncate">{st.name}</div>
+                        <div className="text-xs font-semibold truncate">{getStudentDisplayName(st)}</div>
                         <div className="text-[10px] text-slate-400">{st.studentId} • {st.className}</div>
                       </div>
                     </div>
@@ -442,11 +444,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <div className="flex items-center gap-2.5 truncate">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${student ? getStudentColor(student.id) : 'bg-slate-800'}`}>
-                    {student ? getInitials(student.name) : 'ST'}
+                    {student
+                      ? student.name && student.name.trim().toUpperCase() === student.className.trim().toUpperCase()
+                        ? getInitials(student.studentId)
+                        : getInitials(student.name)
+                      : 'ST'}
                   </div>
                   <div className="truncate">
                     <div className="text-xs font-semibold text-white truncate">
-                      {student ? student.name : record.studentId}
+                      {student ? getStudentDisplayName(student) : record.studentId}
                     </div>
                     <div className="text-[10px] text-slate-400 truncate">
                       {student?.className} • {session?.sessionName || record.sessionId}

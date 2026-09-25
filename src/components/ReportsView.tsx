@@ -8,7 +8,8 @@ import {
 import {
   getClassBadgeColor,
   getCategoryBadgeColor,
-  getCategoryLabel
+  getCategoryLabel,
+  getStudentDisplayName
 } from '../utils/studentUtils';
 import {
   exportSessionAttendanceToCSV,
@@ -376,7 +377,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         <tr key={st.id} className="hover:bg-slate-800/40 transition-colors">
                           <td className="py-3 px-4 text-slate-500 font-mono">{idx + 1}</td>
                           <td className="py-3 px-4 font-mono font-bold text-indigo-400">{st.studentId}</td>
-                          <td className="py-3 px-4 font-semibold text-white">{st.name}</td>
+                          <td className="py-3 px-4 font-semibold text-white">{getStudentDisplayName(st)}</td>
                           <td className="py-3 px-4">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getClassBadgeColor(st.className)}`}>
                               {st.className}
@@ -439,7 +440,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   {studentReportsList.map((item) => (
                     <tr key={item.student.id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="py-3 px-4 font-mono font-bold text-indigo-400">{item.student.studentId}</td>
-                      <td className="py-3 px-4 font-semibold text-white">{item.student.name}</td>
+                      <td className="py-3 px-4 font-semibold text-white">{getStudentDisplayName(item.student)}</td>
                       <td className="py-3 px-4">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getClassBadgeColor(item.student.className)}`}>
                           {item.student.className}

@@ -72,12 +72,41 @@ export const parseStudentCSV = (csvText: string): Student[] => {
 
   const headers = lines[0].split(',').map((h) => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
 
-  // Find column indices
-  let idIndex = headers.findIndex((h) => h.includes('no_pelajar') || h.includes('id') || h.includes('matric') || h.includes('student'));
-  let nameIndex = headers.findIndex((h) => h.includes('nama_pelajar') || h.includes('nama') || h.includes('name'));
-  let setIndex = headers.findIndex((h) => h.includes('nama_set') || h.includes('set') || h.includes('kelas') || h.includes('class'));
-  let phoneIndex = headers.findIndex((h) => h.includes('telefon') || h.includes('phone') || h.includes('tel'));
-  let emailIndex = headers.findIndex((h) => h.includes('email') || h.includes('e-mel') || h.includes('mel'));
+  // Find column indices with precise matching first
+  let nameIndex = headers.findIndex((h) =>
+    h === 'nama_pelajar' || h === 'nama pelajar' || h === 'student_name' || h === 'student name' ||
+    (h.includes('pelajar') && h.includes('nama')) ||
+    (h.includes('student') && h.includes('name'))
+  );
+  if (nameIndex === -1) {
+    nameIndex = headers.findIndex((h) =>
+      h === 'nama' || h === 'name' ||
+      (h.includes('nama') && !h.includes('set') && !h.includes('kelas') && !h.includes('class')) ||
+      (h.includes('name') && !h.includes('class') && !h.includes('set'))
+    );
+  }
+
+  let setIndex = headers.findIndex((h) =>
+    h === 'nama_set' || h === 'nama set' || h === 'set' || h === 'kelas' || h === 'class' ||
+    h.includes('nama_set') || h.includes('nama set') ||
+    (h.includes('kelas') && !h.includes('nama_pelajar')) ||
+    (h.includes('class') && !h.includes('student')) ||
+    (h.includes('set') && !h.includes('reset'))
+  );
+
+  let idIndex = headers.findIndex((h) =>
+    h === 'no_pelajar' || h === 'no pelajar' || h === 'no_matrik' || h === 'no matrik' ||
+    h.includes('no_pelajar') || h.includes('no pelajar') || h.includes('matric') ||
+    (h.includes('pelajar') && (h.includes('no') || h.includes('id'))) ||
+    h === 'id' || h === 'student_id' || h === 'studentid'
+  );
+
+  let phoneIndex = headers.findIndex((h) =>
+    h.includes('telefon') || h.includes('phone') || h.includes('tel') || h.includes('hp') || h.includes('mobile')
+  );
+  let emailIndex = headers.findIndex((h) =>
+    h.includes('email') || h.includes('e-mel') || h.includes('emel') || h.includes('mail')
+  );
 
   // Fallbacks by position if not found by name
   if (idIndex === -1 && headers.length >= 5) idIndex = 4; // Typical CSV: Bil, No_Tel, Set, Nama, No_Pelajar, Email
@@ -92,11 +121,16 @@ export const parseStudentCSV = (csvText: string): Student[] => {
     const rawCols = splitCSVRow(lines[i]);
     if (rawCols.length < 2) continue;
 
-    const studentId = (idIndex >= 0 ? rawCols[idIndex] : `PDA-${Date.now()}-${i}`) || `PDA-${i}`;
-    const name = (nameIndex >= 0 ? rawCols[nameIndex] : `Pelajar ${i}`) || `Pelajar ${i}`;
-    const className = (setIndex >= 0 ? rawCols[setIndex] : 'DIA_4A') || 'DIA_4A';
-    const phone = phoneIndex >= 0 ? rawCols[phoneIndex] : '';
-    const email = emailIndex >= 0 ? rawCols[emailIndex] : '';
+    const studentId = (idIndex >= 0 && idIndex < rawCols.length ? rawCols[idIndex] : `PDA-${Date.now()}-${i}`) || `PDA-${i}`;
+    let name = (nameIndex >= 0 && nameIndex < rawCols.length ? rawCols[nameIndex] : '') || '';
+    const className = (setIndex >= 0 && setIndex < rawCols.length ? rawCols[setIndex] : 'DIA_4A') || 'DIA_4A';
+    const phone = phoneIndex >= 0 && phoneIndex < rawCols.length ? rawCols[phoneIndex] : '';
+    const email = emailIndex >= 0 && emailIndex < rawCols.length ? rawCols[emailIndex] : '';
+
+    // If name is missing or identical to class name, fallback to student ID
+    if (!name || name.trim().toUpperCase() === className.trim().toUpperCase()) {
+      name = studentId;
+    }
 
     resultStudents.push({
       id: studentId.trim().toUpperCase(),

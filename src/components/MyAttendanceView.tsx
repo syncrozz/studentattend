@@ -11,7 +11,8 @@ import {
   getCategoryBadgeColor,
   getCategoryLabel,
   getInitials,
-  getStudentColor
+  getStudentColor,
+  getStudentDisplayName
 } from '../utils/studentUtils';
 import {
   GraduationCap,
@@ -98,7 +99,9 @@ export const MyAttendanceView: React.FC<MyAttendanceViewProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold shrink-0 shadow-lg ${getStudentColor(currentStudent.id)}`}>
-              {getInitials(currentStudent.name)}
+              {currentStudent.name && currentStudent.name.trim().toUpperCase() === currentStudent.className.trim().toUpperCase()
+                ? getInitials(currentStudent.studentId)
+                : getInitials(currentStudent.name)}
             </div>
 
             <div className="space-y-0.5">
@@ -112,7 +115,7 @@ export const MyAttendanceView: React.FC<MyAttendanceViewProps> = ({
               </div>
 
               <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-                {currentStudent.name}
+                {getStudentDisplayName(currentStudent)}
               </h2>
 
               <p className="text-xs text-slate-300 font-mono">
@@ -133,7 +136,7 @@ export const MyAttendanceView: React.FC<MyAttendanceViewProps> = ({
             >
               {students.map((st) => (
                 <option key={st.id} value={st.id}>
-                  {st.studentId} — {st.name} ({st.className})
+                  {st.studentId} — {getStudentDisplayName(st)} ({st.className})
                 </option>
               ))}
             </select>

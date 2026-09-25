@@ -22,6 +22,7 @@ import { StaffDirectoryView } from './components/StaffDirectoryView';
 import { MyAttendanceView } from './components/MyAttendanceView';
 import { ReportsView } from './components/ReportsView';
 import { ConceptGuideView } from './components/ConceptGuideView';
+import { StudentQRPortalView } from './components/StudentQRPortalView';
 import { AdminPinModal } from './components/AdminPinModal';
 import { CSVImportModal } from './components/CSVImportModal';
 import { PWAInstallModal } from './components/PWAInstallModal';
@@ -65,6 +66,47 @@ export default function App() {
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
+
+  // Listen to URL routing (support slug /qr and query params)
+  useEffect(() => {
+    const handleUrlRoute = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+
+      if (path === '/qr' || path.startsWith('/qr') || hash === '#/qr' || hash.startsWith('#/qr')) {
+        setActiveTab('qr');
+      } else if (path === '/scanner' || hash === '#/scanner') {
+        setActiveTab('scanner');
+      } else if (path === '/activities' || hash === '#/activities') {
+        setActiveTab('activities');
+      } else if (path === '/students' || hash === '#/students') {
+        setActiveTab('students');
+      } else if (path === '/my-attendance' || hash === '#/my-attendance') {
+        setActiveTab('my-attendance');
+      } else if (path === '/reports' || hash === '#/reports') {
+        setActiveTab('reports');
+      } else if (path === '/guide' || hash === '#/guide') {
+        setActiveTab('guide');
+      }
+    };
+
+    handleUrlRoute();
+    window.addEventListener('popstate', handleUrlRoute);
+    window.addEventListener('hashchange', handleUrlRoute);
+
+    return () => {
+      window.removeEventListener('popstate', handleUrlRoute);
+      window.removeEventListener('hashchange', handleUrlRoute);
+    };
+  }, []);
+
+  const handleNavigateTab = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    const targetPath = tab === 'qr' ? '/qr' : tab === 'dashboard' ? '/' : `/${tab}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  };
 
   // Subscriptions to Engine / Firestore
   useEffect(() => {
@@ -160,6 +202,12 @@ export default function App() {
     setStudents(attendanceEngine.getStudents());
   };
 
+  // Update Single Student (e.g. Full Name from QR Portal)
+  const handleUpdateStudent = (updatedStudent: Student) => {
+    attendanceEngine.updateStudent(updatedStudent);
+    setStudents(attendanceEngine.getStudents());
+  };
+
   // Delete Student
   const handleDeleteStudent = (studentId: string) => {
     attendanceEngine.deleteStudent(studentId);
@@ -200,7 +248,8 @@ export default function App() {
         onRoleChange={(role) => setCurrentRole(role)}
         onToggleSound={(enabled) => setSoundEnabled(enabled)}
         onResetData={handleResetData}
-        onOpenScanner={() => setActiveTab('scanner')}
+        onOpenScanner={() => handleNavigateTab('scanner')}
+        onOpenQRPortal={() => handleNavigateTab('qr')}
         onToggleAdminMode={handleToggleAdminMode}
       />
 
@@ -208,7 +257,7 @@ export default function App() {
         {/* Sidebar Nav */}
         <SidebarNav
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab)}
+          onTabChange={(tab) => handleNavigateTab(tab)}
           activeSessionName={activeSession?.sessionName}
           totalRecordsCount={attendanceRecords.length}
           onOpenPWAInstall={() => setIsPWAInstallModalOpen(true)}
@@ -223,10 +272,10 @@ export default function App() {
               sessions={sessions}
               students={students}
               attendanceRecords={attendanceRecords}
-              onOpenScanner={() => setActiveTab('scanner')}
-              onGoToActivities={() => setActiveTab('activities')}
-              onGoToStudents={() => setActiveTab('students')}
-              onGoToReports={() => setActiveTab('reports')}
+              onOpenScanner={() => handleNavigateTab('scanner')}
+              onGoToActivities={() => handleNavigateTab('activities')}
+              onGoToStudents={() => handleNavigateTab('students')}
+              onGoToReports={() => handleNavigateTab('reports')}
               onCloseActiveSession={(id) => handleSetSessionStatus(id, 'CLOSED')}
               onQuickSimulateScan={handleQuickSimulateScan}
             />
@@ -241,7 +290,7 @@ export default function App() {
               isAdmin={isAdmin}
               onRequestAdminAccess={handleRequestAdminAccess}
               onProcessScan={handleProcessScan}
-              onGoToActivities={() => setActiveTab('activities')}
+              onGoToActivities={() => handleNavigateTab('activities')}
               soundEnabled={soundEnabled}
               onToggleSound={(enabled) => setSoundEnabled(enabled)}
             />
@@ -260,7 +309,7 @@ export default function App() {
               onDeleteActivity={handleDeleteActivity}
               onOpenScannerForSession={(sessionId) => {
                 handleSetSessionStatus(sessionId, 'OPEN');
-                setActiveTab('scanner');
+                handleNavigateTab('scanner');
               }}
               onRequestAdminAccess={handleRequestAdminAccess}
             />
@@ -278,6 +327,16 @@ export default function App() {
               onOpenCSVImport={() => setIsCSVModalOpen(true)}
               onRequestAdminAccess={handleRequestAdminAccess}
               onQuickSimulateScan={handleQuickSimulateScan}
+            />
+          )}
+
+          {activeTab === 'qr' && (
+            <StudentQRPortalView
+              students={students}
+              sessions={sessions}
+              activities={activities}
+              attendanceRecords={attendanceRecords}
+              onUpdateStudent={handleUpdateStudent}
             />
           )}
 

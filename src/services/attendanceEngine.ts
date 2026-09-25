@@ -54,7 +54,13 @@ class AttendanceEngine {
         const storedSessions = localStorage.getItem(STORAGE_KEYS.SESSIONS);
         const storedRecords = localStorage.getItem(STORAGE_KEYS.RECORDS);
 
-        this.students = storedStudents ? JSON.parse(storedStudents) : INITIAL_STUDENTS;
+        const loadedStudents: Student[] = storedStudents ? JSON.parse(storedStudents) : INITIAL_STUDENTS;
+        this.students = loadedStudents.map((st) => {
+          if (!st.name || st.name.trim().toUpperCase() === st.className?.trim().toUpperCase()) {
+            return { ...st, name: st.studentId || st.name || 'PELAJAR' };
+          }
+          return st;
+        });
         this.activities = storedActivities ? JSON.parse(storedActivities) : INITIAL_ACTIVITIES;
         this.sessions = storedSessions ? JSON.parse(storedSessions) : INITIAL_SESSIONS;
         this.attendanceRecords = storedRecords ? JSON.parse(storedRecords) : INITIAL_ATTENDANCE_RECORDS;
@@ -127,7 +133,12 @@ class AttendanceEngine {
         (snapshot) => {
           if (!snapshot.empty) {
             const data = snapshot.docs.map((docSnap) => docSnap.data() as Student);
-            this.students = data;
+            this.students = data.map((st) => {
+              if (!st.name || st.name.trim().toUpperCase() === st.className?.trim().toUpperCase()) {
+                return { ...st, name: st.studentId || st.name || 'PELAJAR' };
+              }
+              return st;
+            });
             this.saveStudentsLocally();
             callback(this.students);
           } else {
@@ -308,6 +319,17 @@ class AttendanceEngine {
   public addStudent(student: Student) {
     const updated = [student, ...this.students.filter((s) => s.id !== student.id)];
     this.saveStudentsList(updated);
+  }
+
+  public updateStudent(updatedStudent: Student) {
+    this.students = this.students.map((s) => (s.id === updatedStudent.id ? updatedStudent : s));
+    this.saveStudentsLocally();
+
+    if (db) {
+      setDoc(doc(db, 'students', updatedStudent.id), sanitizeForFirestore(updatedStudent), { merge: true }).catch((err) => {
+        console.warn(`Error updating student ${updatedStudent.id} in Firestore:`, err);
+      });
+    }
   }
 
   public deleteStudent(studentId: string) {

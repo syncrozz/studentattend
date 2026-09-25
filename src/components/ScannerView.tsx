@@ -14,7 +14,8 @@ import {
   getCategoryLabel,
   getClassBadgeColor,
   getInitials,
-  getStudentColor
+  getStudentColor,
+  getStudentDisplayName
 } from '../utils/studentUtils';
 import {
   Camera,
@@ -359,10 +360,12 @@ export const ScannerView: React.FC<ScannerViewProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold ${getStudentColor(st.id)}`}>
-                          {getInitials(st.name)}
+                          {st.name && st.name.trim().toUpperCase() === st.className.trim().toUpperCase()
+                            ? getInitials(st.studentId)
+                            : getInitials(st.name)}
                         </div>
                         <div>
-                          <div className="text-xs font-semibold text-white">{st.name}</div>
+                          <div className="text-xs font-semibold text-white">{getStudentDisplayName(st)}</div>
                           <div className="text-[10px] text-slate-400">{st.studentId} • {st.className}</div>
                         </div>
                       </div>
@@ -424,7 +427,7 @@ export const ScannerView: React.FC<ScannerViewProps> = ({
                   </div>
 
                   <h4 className="text-base font-bold text-white">
-                    {scanResult.student ? scanResult.student.name : 'Maklumat Imbasan'}
+                    {scanResult.student ? getStudentDisplayName(scanResult.student) : 'Maklumat Imbasan'}
                   </h4>
 
                   {scanResult.student && (

@@ -24,6 +24,7 @@ interface HeaderProps {
   onResetData: () => void;
   onOpenScanner: () => void;
   onToggleAdminMode: () => void;
+  onOpenQRPortal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,7 +36,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSound,
   onResetData,
   onOpenScanner,
-  onToggleAdminMode
+  onToggleAdminMode,
+  onOpenQRPortal
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
@@ -104,6 +106,19 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden md:inline">Cloud Live Sync</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           </div>
+
+          {/* Quick Find QR Button */}
+          {onOpenQRPortal && (
+            <button
+              id="header-btn-find-qr"
+              onClick={onOpenQRPortal}
+              className="hidden xs:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+              title="Buka portal Carian Kad QR Pelajar (/qr)"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>Cari QR</span>
+            </button>
+          )}
 
           {/* Quick Scanner Action Button */}
           <button

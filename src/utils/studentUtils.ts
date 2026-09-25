@@ -7,6 +7,12 @@ export const getInitials = (name: string): string => {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 };
 
+export const getStudentDisplayName = (student?: { name?: string; className?: string; studentId?: string } | null): string => {
+  if (!student) return '';
+  const isNameSameAsClass = !student.name || (Boolean(student.className) && student.name.trim().toUpperCase() === student.className?.trim().toUpperCase());
+  return isNameSameAsClass ? (student.studentId || student.name || 'PELAJAR') : student.name;
+};
+
 export const getStudentColor = (id: string): string => {
   const colors = [
     'bg-indigo-600 text-indigo-100',

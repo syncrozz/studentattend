@@ -103,7 +103,8 @@ export type ActiveTab =
   | 'students'
   | 'my-attendance'
   | 'reports'
-  | 'guide';
+  | 'guide'
+  | 'qr';
 
 export interface StudentAttendanceSummary {
   student: Student;
