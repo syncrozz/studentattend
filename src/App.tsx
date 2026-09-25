@@ -32,10 +32,10 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('ADMIN');
 
   // Real-time state from Attendance Engine
-  const [students, setStudents] = useState<Student[]>([]);
-  const [activities, setActivities] = useState<AttendanceActivity[]>([]);
-  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [students, setStudents] = useState<Student[]>(() => attendanceEngine.getStudents());
+  const [activities, setActivities] = useState<AttendanceActivity[]>(() => attendanceEngine.getActivities());
+  const [sessions, setSessions] = useState<AttendanceSession[]>(() => attendanceEngine.getSessions());
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => attendanceEngine.getAttendanceRecords());
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
   // Admin Mode & Modal States
@@ -225,9 +225,9 @@ export default function App() {
     setStudents(merged);
   };
 
-  // Reset Data to Default 95 Students
+  // Reset Data to Default Students
   const handleResetData = () => {
-    if (window.confirm('Adakah anda pasti untuk mengeset semula data kepada Master 95 Pelajar asal?')) {
+    if (window.confirm('Adakah anda pasti untuk mengeset semula data kepada Master Pelajar asal?')) {
       attendanceEngine.resetToDefaultData();
       setStudents(attendanceEngine.getStudents());
       setActivities(attendanceEngine.getActivities());
@@ -236,6 +236,68 @@ export default function App() {
       soundService.playSuccess();
     }
   };
+
+  // Dedicated Clean Student View for /qr slug (Distraction-Free for Students)
+  if (activeTab === 'qr') {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+        {/* Minimalist Student Portal Header */}
+        <header className="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-6 py-3 no-print">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-900 border border-indigo-500/30 overflow-hidden flex items-center justify-center p-1 shrink-0">
+                <img
+                  src="https://raw.githubusercontent.com/syncrozz/syncrozz-assets/main/logo/StudentAttend/android-chrome-192x192.png"
+                  alt="StudentAttend Logo"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm sm:text-base font-black text-white tracking-tight">
+                    STUDENT ATTEND
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Portal Pelajar
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 hidden sm:block">
+                  Kolej Profesional MARA Bandar Penawar
+                </p>
+              </div>
+            </div>
+
+            {/* Subtle button to access main dashboard / admin system */}
+            <button
+              id="btn-qr-to-admin"
+              onClick={() => handleNavigateTab('dashboard')}
+              className="text-xs font-semibold text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-800"
+              title="Akses Sistem Pengurusan Pentadbir"
+            >
+              <span>Akses Pentadbir</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Dedicated Student Portal Main Area */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto">
+          <StudentQRPortalView
+            students={students}
+            sessions={sessions}
+            activities={activities}
+            attendanceRecords={attendanceRecords}
+            onUpdateStudent={handleUpdateStudent}
+            onGoToAdmin={() => handleNavigateTab('dashboard')}
+          />
+        </main>
+
+        {/* Minimal Student Footer */}
+        <footer className="border-t border-slate-900 py-4 px-6 text-center text-xs text-slate-500 no-print">
+          <p>© {new Date().getFullYear()} Kolej Profesional MARA Bandar Penawar • Sistem Kehadiran Pelajar</p>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -260,6 +322,7 @@ export default function App() {
           onTabChange={(tab) => handleNavigateTab(tab)}
           activeSessionName={activeSession?.sessionName}
           totalRecordsCount={attendanceRecords.length}
+          totalStudentsCount={students.length}
           onOpenPWAInstall={() => setIsPWAInstallModalOpen(true)}
         />
 

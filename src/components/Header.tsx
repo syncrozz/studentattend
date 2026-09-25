@@ -120,16 +120,6 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Quick Scanner Action Button */}
-          <button
-            id="header-btn-quick-scanner"
-            onClick={onOpenScanner}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all active:scale-95 cursor-pointer"
-          >
-            <QrCode className="w-4 h-4" />
-            <span className="hidden sm:inline">Imbas QR</span>
-          </button>
-
           {/* Sound Toggle */}
           <button
             id="header-btn-sound-toggle"
@@ -173,7 +163,7 @@ export const Header: React.FC<HeaderProps> = ({
             id="header-btn-reset-demo"
             onClick={onResetData}
             className="p-2 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 transition-all cursor-pointer"
-            title="Set Semula Sampel Data (95 Pelajar)"
+            title="Set Semula Sampel Data"
           >
             <RotateCcw className="w-4 h-4" />
           </button>

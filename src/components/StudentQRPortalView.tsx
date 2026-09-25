@@ -42,6 +42,7 @@ interface StudentQRPortalViewProps {
   activities: AttendanceActivity[];
   attendanceRecords: AttendanceRecord[];
   onUpdateStudent?: (student: Student) => void;
+  onGoToAdmin?: () => void;
 }
 
 export const StudentQRPortalView: React.FC<StudentQRPortalViewProps> = ({
@@ -49,7 +50,8 @@ export const StudentQRPortalView: React.FC<StudentQRPortalViewProps> = ({
   sessions,
   activities,
   attendanceRecords,
-  onUpdateStudent
+  onUpdateStudent,
+  onGoToAdmin
 }) => {
   const [searchInput, setSearchInput] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -75,6 +77,22 @@ export const StudentQRPortalView: React.FC<StudentQRPortalViewProps> = ({
       const hashQuery = window.location.hash.split('?')[1];
       const hashParams = new URLSearchParams(hashQuery);
       idParam = hashParams.get('id') || hashParams.get('search') || hashParams.get('no_pelajar');
+    }
+
+    // Support /qr/PDA2403002 directly
+    if (!idParam) {
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      if (pathParts[0]?.toLowerCase() === 'qr' && pathParts[1]) {
+        idParam = decodeURIComponent(pathParts[1]);
+      }
+    }
+
+    // Support #/qr/PDA2403002
+    if (!idParam && window.location.hash) {
+      const hashParts = window.location.hash.replace(/^#\/?/, '').split('/');
+      if (hashParts[0]?.toLowerCase() === 'qr' && hashParts[1]) {
+        idParam = decodeURIComponent(hashParts[1]);
+      }
     }
 
     if (idParam && students.length > 0) {
@@ -461,6 +479,9 @@ export const StudentQRPortalView: React.FC<StudentQRPortalViewProps> = ({
                 id="student-qr-search-input"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="Taip No. ID Pelajar (cth: PDA2403002 atau PDA-2403-002)..."
                 className="w-full pl-12 pr-24 py-3.5 rounded-2xl bg-slate-950/90 border-2 border-indigo-500/40 focus:border-indigo-400 text-sm sm:text-base text-white placeholder-slate-500 focus:outline-none shadow-inner"
               />

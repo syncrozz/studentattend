@@ -17,6 +17,7 @@ interface SidebarNavProps {
   onTabChange: (tab: ActiveTab) => void;
   activeSessionName?: string;
   totalRecordsCount: number;
+  totalStudentsCount?: number;
   onOpenPWAInstall?: () => void;
 }
 
@@ -25,6 +26,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   onTabChange,
   activeSessionName,
   totalRecordsCount,
+  totalStudentsCount,
   onOpenPWAInstall
 }) => {
   const navItems = [
@@ -34,13 +36,18 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       icon: LayoutDashboard,
       badge: undefined
     },
-    {
-      id: 'scanner' as ActiveTab,
-      label: 'Imbasan QR',
-      icon: QrCode,
-      badge: activeSessionName ? 'LIVE' : undefined,
-      badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-    },
+    // Only display scan button/tab when a session is OPEN!
+    ...(activeSessionName
+      ? [
+          {
+            id: 'scanner' as ActiveTab,
+            label: 'Imbasan QR',
+            icon: QrCode,
+            badge: 'LIVE',
+            badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 animate-pulse'
+          }
+        ]
+      : []),
     {
       id: 'activities' as ActiveTab,
       label: 'Aktiviti & Sesi',
@@ -51,8 +58,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       id: 'students' as ActiveTab,
       label: 'Direktori Pelajar',
       icon: Users,
-      badge: '95',
-      badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+      badge: totalStudentsCount !== undefined && totalStudentsCount > 0 ? `${totalStudentsCount}` : undefined,
+      badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30 font-bold'
     },
     {
       id: 'qr' as ActiveTab,

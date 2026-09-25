@@ -31,7 +31,8 @@ import {
   Clock,
   ArrowRight,
   ShieldAlert,
-  GraduationCap
+  GraduationCap,
+  CalendarCheck
 } from 'lucide-react';
 
 interface ScannerViewProps {
@@ -76,7 +77,13 @@ export const ScannerView: React.FC<ScannerViewProps> = ({
     }
   }, [activeSession]);
 
-  const currentSession = allSessions.find((s) => s.id === selectedSessionId) || activeSession;
+  // Only OPEN sessions are eligible for scanning
+  const openSessions = allSessions.filter((s) => s.status === 'OPEN');
+  const currentSession =
+    openSessions.find((s) => s.id === selectedSessionId) ||
+    (activeSession && activeSession.status === 'OPEN' ? activeSession : null) ||
+    openSessions[0] ||
+    null;
 
   // Session attendance stats
   const sessionRecords = currentSession
@@ -191,6 +198,32 @@ export const ScannerView: React.FC<ScannerViewProps> = ({
     })
     .slice(0, 5);
 
+  if (!currentSession || currentSession.status !== 'OPEN') {
+    return (
+      <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-8 sm:p-12 text-center max-w-lg mx-auto space-y-5 my-8 shadow-xl">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
+          <AlertTriangle className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-white tracking-tight">Tiada Sesi Kehadiran Dibuka</h2>
+          <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+            Imbasan kod QR kehadiran hanya boleh dilakukan selepas sesuatu sesi dibuka (Status: DIBUKA). Sila buka sesi di menu Aktiviti & Sesi terlebih dahulu.
+          </p>
+        </div>
+        <div>
+          <button
+            id="scanner-btn-goto-activities"
+            onClick={onGoToActivities}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-lg shadow-indigo-600/30 active:scale-95"
+          >
+            <CalendarCheck className="w-4 h-4" />
+            <span>Buka Sesi di Aktiviti & Sesi</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Session Context Bar & Target Selector */}
@@ -200,43 +233,42 @@ export const ScannerView: React.FC<ScannerViewProps> = ({
             <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
               PENGIMBAS KEHADIRAN QR
             </span>
-            {currentSession && (
-              <span className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${getCategoryBadgeColor(currentSession.category)}`}>
-                {getCategoryLabel(currentSession.category)}
-              </span>
-            )}
-            {currentSession?.status === 'OPEN' ? (
-              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold animate-pulse">
-                🟢 SEDANG DIBUKA (AKTIF)
-              </span>
-            ) : (
-              <span className="text-[10px] px-2 py-0.5 rounded bg-blue-950/40 text-blue-300 border border-blue-800/40 font-medium">
-                🔵 SESI TERSEDIA
-              </span>
-            )}
+            <span className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${getCategoryBadgeColor(currentSession.category)}`}>
+              {getCategoryLabel(currentSession.category)}
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold animate-pulse">
+              🟢 SEDANG DIBUKA (AKTIF)
+            </span>
           </div>
           <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-            {currentSession ? currentSession.sessionName : 'Sila Pilih Sesi'}
+            {currentSession.sessionName}
           </h2>
           <p className="text-xs text-slate-400">
-            {currentSession?.location} • {currentSession?.organizer}
+            {currentSession.location} • {currentSession.organizer}
           </p>
         </div>
 
-        {/* Sesi Picker Dropdown */}
+        {/* Sesi Picker Dropdown - Only open sessions */}
         <div className="flex items-center gap-2">
-          <select
-            id="scanner-session-select"
-            value={selectedSessionId}
-            onChange={(e) => setSelectedSessionId(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 focus:outline-none focus:border-indigo-500 max-w-xs cursor-pointer"
-          >
-            {allSessions.map((ses) => (
-              <option key={ses.id} value={ses.id}>
-                {ses.status === 'OPEN' ? '🟢 [BUKA] ' : '⚪ '} {ses.sessionName}
-              </option>
-            ))}
-          </select>
+          {openSessions.length > 1 ? (
+            <select
+              id="scanner-session-select"
+              value={selectedSessionId}
+              onChange={(e) => setSelectedSessionId(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 focus:outline-none focus:border-indigo-500 max-w-xs cursor-pointer"
+            >
+              {openSessions.map((ses) => (
+                <option key={ses.id} value={ses.id}>
+                  🟢 [BUKA] {ses.sessionName}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-semibold text-emerald-300 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span>Sesi Aktif</span>
+            </div>
+          )}
 
           <button
             onClick={() => onToggleSound(!soundEnabled)}

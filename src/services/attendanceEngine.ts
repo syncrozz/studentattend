@@ -483,11 +483,11 @@ class AttendanceEngine {
       activeSession = this.getActiveSession();
     }
 
-    if (!activeSession) {
+    if (!activeSession || activeSession.status !== 'OPEN') {
       return {
         success: false,
         code: 'NO_ACTIVE_EVENT',
-        message: 'Tiada sesi aktiviti yang aktif atau dibuka pada masa ini.',
+        message: 'Imbasan tidak dibenarkan kerana sesi ini belum dibuka atau telah ditutup.',
         timestamp: now
       };
     }

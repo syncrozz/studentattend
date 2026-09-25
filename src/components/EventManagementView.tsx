@@ -477,15 +477,17 @@ export const EventManagementView: React.FC<EventManagementViewProps> = ({
                                   <Maximize2 className="w-3.5 h-3.5" />
                                 </button>
 
-                                {/* Go to Scanner */}
-                                <button
-                                  id={`btn-scan-session-${session.id}`}
-                                  onClick={() => onOpenScannerForSession(session.id)}
-                                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all cursor-pointer"
-                                >
-                                  <QrCode className="w-3.5 h-3.5" />
-                                  <span>Imbas</span>
-                                </button>
+                                {/* Go to Scanner - Only display when session is OPEN */}
+                                {isOpen && (
+                                  <button
+                                    id={`btn-scan-session-${session.id}`}
+                                    onClick={() => onOpenScannerForSession(session.id)}
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all cursor-pointer shadow-sm shadow-emerald-600/20"
+                                  >
+                                    <QrCode className="w-3.5 h-3.5" />
+                                    <span>Imbas Sesi Ini</span>
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>

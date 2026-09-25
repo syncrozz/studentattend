@@ -68,8 +68,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       ? Math.round((activeSessionRecords.length / targetStudentsForActive.length) * 100)
       : 0;
 
-  // Class Set Distribution
-  const sets = ['DIA_4A', 'DIA_4B', 'DIA_4C', 'DIA_4D'];
+  // Class Set Distribution (Dynamically derived from students)
+  const availableClasses: string[] = Array.from(new Set<string>(students.map((s) => s.className).filter((c): c is string => Boolean(c)))).sort();
+  const sets: string[] = availableClasses.length > 0 ? availableClasses.slice(0, 8) : ['DIA_4A', 'DIA_4B', 'DIA_4C', 'DIA_4D'];
   const setStats = sets.map((setName) => {
     const classStudents = students.filter((s) => s.className === setName);
     const presentInActive = activeSession
@@ -229,9 +230,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-xs font-semibold">Jumlah Pelajar</span>
             <Users className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-white">95</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-white">{students.length}</div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            <span>4 Set: DIA_4A - 4D</span>
+            <span>{availableClasses.length > 0 ? `${availableClasses.length} Kelas / Set` : 'Semua Set'}</span>
             <ArrowUpRight className="w-3 h-3 text-indigo-400" />
           </div>
         </div>

@@ -44,7 +44,7 @@ export const ConceptGuideView: React.FC = () => {
             </div>
             <h4 className="text-sm font-bold text-white">Master Pelajar</h4>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              95 Pelajar unik merangkumi 4 set (DIA_4A, DIA_4B, DIA_4C, DIA_4D) dengan No. Pelajar rasmi (contoh: <code className="text-indigo-300">PDA-2502-005</code>).
+              Direktori pelajar rasmi merangkumi pelbagai set kelas kolej dengan No. Pelajar rasmi (contoh: <code className="text-indigo-300">PDA-2502-005</code>).
             </p>
           </div>
 
@@ -108,7 +108,7 @@ export const ConceptGuideView: React.FC = () => {
             <div className="text-xs font-bold uppercase text-blue-400">03. Pentadbir (Admin / HEP)</div>
             <h4 className="text-sm font-bold text-white">Pengurusan Master & Laporan</h4>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Urus direktori 95 pelajar, cipta aktiviti induk, eksport/import fail CSV rasmi, dan cetak lembaran laporan kehadiran serta kad QR A4.
+              Urus direktori master pelajar, cipta aktiviti induk, eksport/import fail CSV rasmi, dan cetak lembaran laporan kehadiran serta kad QR A4.
             </p>
           </div>
         </div>
